@@ -26,21 +26,12 @@ namespace MikrotikConfig
         // info.txt
         // ros.npk
         // ipFile.txt
-        //string[] files = { "\\script.rsc", "\\info.txt", "\\ros.npk", "\\ipFile.txt" };
+        
         public MainWindow()
         {
             InitializeComponent();
-            /*
-            string path = directory.getcurrentdirectory();
-            foreach(string file in files)
-            {
-                string filepath = path + file;
-                if (file.exists(filepath))
-                {
-                    file.delete(filepath);
-                }
-            }
-            */
+            
+            
         }
     }
 }

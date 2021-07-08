@@ -24,13 +24,26 @@ namespace MikrotikConfig
     {
         private readonly BackgroundWorker worker = new BackgroundWorker { WorkerReportsProgress = true };
         private readonly string host = "192.168.88.1";
-        private readonly string username = "admin";
-        private readonly string password = "";
+        Controller controller = new Controller();
+        string[] files = { "\\log.rsc", "\\info.txt", "\\ros.npk", "\\ipFile.txt" };
         public StartUp()
-        {
+        { 
+            
+            string path = Directory.GetCurrentDirectory();
+            foreach (string f in files)
+            {
+                string filepath = path + f;
+                if (File.Exists(filepath))
+                {
+                    File.Delete(filepath);
+                }
+            }
             InitializeComponent();
             worker.DoWork += worker_DoWork;
             worker.ProgressChanged += worker_ProgressChanged;
+            controller.scriptHeader();
+            
+
         }
 
         private void findRouterButton(object sender, RoutedEventArgs e)
@@ -47,56 +60,55 @@ namespace MikrotikConfig
 
         void worker_DoWork(object sender, DoWorkEventArgs e)
         {
-            bool doNotShowMessage = false;
             (sender as BackgroundWorker).ReportProgress(25);
-            // check if we can ssh via default credentials
-            // create the client
-            var client = new SshClient(host, username, password);
-            
-            //try connecting
-            try
+            var decision = controller.initiateConfiguration();
+            (sender as BackgroundWorker).ReportProgress(50);
+
+            if (decision.Item1 == false)
             {
-                (sender as BackgroundWorker).ReportProgress(50);
-                client.Connect();
-            }
-            // this is so we can catch a refused connection before we try to go any further
-            catch (System.Net.Sockets.SocketException)
-            {
-                
-            }
-            // if it detects a password we move onto the main menu to configure new scripts
-            catch (Renci.SshNet.Common.SshAuthenticationException)
-            {
-                doNotShowMessage = true;
-                Application.Current.Dispatcher.Invoke((Action)delegate
+                if (decision.Item2 == 1)
+                {
+                    (sender as BackgroundWorker).ReportProgress(0);
+                    // socket exception
+                    MessageBox.Show("WARNING!\nRouter is refusing connection" +
+                                    " on port 22!\nYou might need to manually " +
+                                    "reset this router to continue using this program.");
+                }
+                if (decision.Item2 == 2)
                 {
                     (sender as BackgroundWorker).ReportProgress(100);
-                    mainMenu a = new mainMenu();
-                    NavigationService.Navigate(a);
-                });
+                    // authentication exception
+                    // FIRST GET THE CREDENTIALS
+                    RouterUtility ru = new RouterUtility();
+                    string[] cred = ru.getCredentials();
+                    RouterInfo ri = new RouterInfo(host, cred[0], cred[1]);
+                    ri.setFileName(controller.name);
+
+                    // THEN GO TO THE PRECONFIGURED SELECTION
+                    Dispatcher.Invoke((Action)delegate
+                    {
+                        PreconfiguredRouterSelection pr = new PreconfiguredRouterSelection(ri);
+                        NavigationService.Navigate(pr);
+                    });
+                    
+                
+                }
             }
 
-            // if we are connected then we continue with the configuration
-            if (client.IsConnected)
+            if (decision.Item1 == true)
             {
-                Application.Current.Dispatcher.Invoke((Action)delegate
+                (sender as BackgroundWorker).ReportProgress(100);
+                // get default credentials first
+                var info = controller.getDefaultCredentials();
+                info.setFileName(controller.name);
+                Dispatcher.Invoke((Action)delegate
                 {
-                    // this opens newconfigure page
-                    (sender as BackgroundWorker).ReportProgress(100);
-                    Preconfigure config = new Preconfigure();
-                    NavigationService.Navigate(config);
+                    NewRouterSelection newRouter = new NewRouterSelection(info);
+                    //open newRouterSelection Page
+                    NavigationService.Navigate(newRouter);
                 });
+                
             }
-            if (!client.IsConnected && !doNotShowMessage)// if we are not connected, display interface IPs to check if we are on correct subnet
-            {
-                (sender as BackgroundWorker).ReportProgress(75);
-                Utility util = new Utility();
-                string list = util.getInterfaceIPs();
-                MessageBox.Show("You are not connected!\nI have detected the following interfaces: " +
-                                $"{list}\nPlease make sure you are on the correct subnet!");
-                (sender as BackgroundWorker).ReportProgress(0);
-            }
-            client.Disconnect();
         }
 
         void worker_ProgressChanged(object sender, ProgressChangedEventArgs e)

@@ -4,10 +4,26 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <UseWPF>true</UseWPF>
+    <PackageId>Mikrotik Programming Buddy</PackageId>
+    <Authors>Mikrotik Programming Buddy</Authors>
+    <Product>Mikrotik Programming Buddy</Product>
+    <Version>0.1.0</Version>
+    <PackageIcon>icon.png</PackageIcon>
+    <PackageIconUrl />
+    <ApplicationIcon>Res\icon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
+    <None Remove="Res\951Ui.npk" />
+    <None Remove="Res\icon.ico" />
+    <None Remove="Res\icon.png" />
+    <None Remove="Res\RBD52G.npk" />
+    <None Remove="Res\resLogo.png" />
     <None Remove="Res\resoundLogo.png" />
+    <None Include="Res\icon.png">
+      <Pack>True</Pack>
+      <PackagePath></PackagePath>
+    </None>
   </ItemGroup>
 
   <ItemGroup>
@@ -15,6 +31,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="Res\951Ui.npk" />
+    <Resource Include="Res\icon.ico" />
+    <Resource Include="Res\icon.png" />
+    <EmbeddedResource Include="Res\RBD52G.npk" />
+    <Resource Include="Res\resLogo.png" />
     <Resource Include="Res\resoundLogo.png" />
   </ItemGroup>
 

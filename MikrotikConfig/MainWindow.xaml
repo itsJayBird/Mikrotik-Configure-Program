@@ -5,14 +5,15 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:MikrotikConfig"
         mc:Ignorable="d"
-        Title="MainWindow" 
+        Title="Mikrotik Programming Buddy" 
         Height="400" 
         Width="500"
-        Source=""
+        Source="StartUp.xaml"
         ShowsNavigationUI="False"
         MinHeight="400"
         MinWidth="500"
         MaxHeight="400"
         MaxWidth="500">
+
 
 </NavigationWindow>
