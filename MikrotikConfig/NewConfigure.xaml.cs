@@ -73,7 +73,7 @@ namespace MikrotikConfig
                 (sender as BackgroundWorker).ReportProgress(66);
                 Thread.Sleep(100);
 
-                // CREATE THE SCRIPT
+                // CREATE THE SCRIPTs
                 controller.setName(routerinfo.fileName);
                 controller.makeScript(q1, q2, q3, routerModel);
                 (sender as BackgroundWorker).ReportProgress(100);
