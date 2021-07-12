@@ -102,7 +102,7 @@ namespace MikrotikConfig
                             return new Tuple<string, bool>("RBD52G", true);
                         }
 
-                        if (line.Contains("951Ui"))
+                        if (line.Contains("951Ui") || line.Contains("952Ui"))
                         {
                             return new Tuple<string, bool>("951Ui", false);
                         }
