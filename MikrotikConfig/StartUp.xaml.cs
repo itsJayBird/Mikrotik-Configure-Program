@@ -23,27 +23,12 @@ namespace MikrotikConfig
     public partial class StartUp : Page
     {
         private readonly BackgroundWorker worker = new BackgroundWorker { WorkerReportsProgress = true };
-        private readonly string host = "192.168.88.1";
         Controller controller = new Controller();
-        string[] files = { "\\log.rsc", "\\info.txt", "\\ros.npk", "\\ipFile.txt" };
         public StartUp()
         { 
-            
-            string path = Directory.GetCurrentDirectory();
-            foreach (string f in files)
-            {
-                string filepath = path + f;
-                if (File.Exists(filepath))
-                {
-                    File.Delete(filepath);
-                }
-            }
             InitializeComponent();
             worker.DoWork += worker_DoWork;
             worker.ProgressChanged += worker_ProgressChanged;
-            controller.scriptHeader();
-            
-
         }
 
         private void findRouterButton(object sender, RoutedEventArgs e)
@@ -60,54 +45,38 @@ namespace MikrotikConfig
 
         void worker_DoWork(object sender, DoWorkEventArgs e)
         {
+            // initialize router and grab default credentials
             (sender as BackgroundWorker).ReportProgress(25);
-            var decision = controller.initiateConfiguration();
+            var routerinfo = controller.initializeRouter();
             (sender as BackgroundWorker).ReportProgress(50);
 
-            if (decision.Item1 == false)
+            // if no connection
+            if (routerinfo.password == null)
             {
-                if (decision.Item2 == 1)
-                {
-                    (sender as BackgroundWorker).ReportProgress(0);
-                    // socket exception
-                    MessageBox.Show("WARNING!\nRouter is refusing connection" +
-                                    " on port 22!\nYou might need to manually " +
-                                    "reset this router to continue using this program.");
-                }
-                if (decision.Item2 == 2)
-                {
-                    (sender as BackgroundWorker).ReportProgress(100);
-                    // authentication exception
-                    // FIRST GET THE CREDENTIALS
-                    RouterUtility ru = new RouterUtility();
-                    string[] cred = ru.getCredentials();
-                    RouterInfo ri = new RouterInfo(host, cred[0], cred[1]);
-                    ri.setFileName(controller.name);
-
-                    // THEN GO TO THE PRECONFIGURED SELECTION
-                    Dispatcher.Invoke((Action)delegate
-                    {
-                        PreconfiguredRouterSelection pr = new PreconfiguredRouterSelection(ri);
-                        NavigationService.Navigate(pr);
-                    });
-                    
-                
-                }
+                (sender as BackgroundWorker).ReportProgress(0);
+                MessageBox.Show("Unable to connect to router!");
             }
 
-            if (decision.Item1 == true)
+            // if password is blank go to new router selection
+            if (routerinfo.password == "")
             {
                 (sender as BackgroundWorker).ReportProgress(100);
-                // get default credentials first
-                var info = controller.getDefaultCredentials();
-                info.setFileName(controller.name);
-                Dispatcher.Invoke((Action)delegate
+                Application.Current.Dispatcher.Invoke((Action)delegate
                 {
-                    NewRouterSelection newRouter = new NewRouterSelection(info);
-                    //open newRouterSelection Page
-                    NavigationService.Navigate(newRouter);
+                    NewRouterSelection nrs = new NewRouterSelection(routerinfo);
+                    this.NavigationService.Navigate(nrs);
                 });
-                
+            }
+
+            // if password is anything else go to preconfigured router
+            if (routerinfo.password.Length > 0)
+            {
+                (sender as BackgroundWorker).ReportProgress(100);
+                Application.Current.Dispatcher.Invoke((Action)delegate
+                {
+                    PreconfiguredRouterSelection prs = new PreconfiguredRouterSelection(routerinfo);
+                    this.NavigationService.Navigate(prs);
+                });
             }
         }
 

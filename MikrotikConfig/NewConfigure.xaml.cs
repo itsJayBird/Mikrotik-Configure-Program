@@ -62,22 +62,20 @@ namespace MikrotikConfig
             }
             else
             {
-                // CREATE THE CONTROLLERS
+                // CREATE THE CONTROLLER
                 Controller controller = new Controller();
-                RouterUtility ru = new RouterUtility();
-
                 (sender as BackgroundWorker).ReportProgress(25);
                 Thread.Sleep(100);
 
                 // USE THE UTILITY FUNCTION TO GET MODEL INFORMATION
-                Tuple<string, bool> routerModel = ru.getModel(routerinfo.host, routerinfo.user, routerinfo.password);
+                string routerModel = controller.getRouterModel(routerinfo);
+                routerinfo.setModel(routerModel);
                 (sender as BackgroundWorker).ReportProgress(66);
                 Thread.Sleep(100);
 
                 // CREATE THE SCRIPT
-                MessageBox.Show($"Configuration script made! Auto-Detected router model: {routerModel.Item1}");
                 controller.setName(routerinfo.fileName);
-                controller.makeScript(q1, q2, q3, routerModel.Item2);
+                controller.makeScript(q1, q2, q3, routerModel);
                 (sender as BackgroundWorker).ReportProgress(100);
             }
 

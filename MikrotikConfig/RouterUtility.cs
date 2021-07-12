@@ -5,14 +5,15 @@ using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading;
 using Renci.SshNet;
+using tik4net;
 
 namespace MikrotikConfig
 {
     class RouterUtility
     {
-        private readonly string defUser = "admin";
-        private readonly string defPass = "";
-        private readonly string defIP = "192.168.88.1";
+        private readonly string host = "192.168.88.1";
+        private readonly string[,] defaultCredentials = { { "admin", "admin", "admin", "admin", "wroknet" },
+                                                            { "R3sound810", "R3sound810!", "Rn3t720", "Rn3t720!", "H4rv3st3r!" } };
         public RouterUtility() { }
 
 
@@ -22,92 +23,48 @@ namespace MikrotikConfig
          *  1: socket exception
          *  2: authentication exception
          */
-        public Tuple<bool,int> isNewRouter()
+         
+        public RouterInfo initializeRouter()
         {
-            SshClient client = new SshClient(defIP, defUser, defPass);
-            try
+            ITikConnection connection = ConnectionFactory.CreateConnection(TikConnectionType.Api);
+            RouterInfo routerinfo = new RouterInfo(null, null, null);
+            bool connected = false;
+            int i = 0;
+            while (!connected)
             {
-                client.Connect();
-            }
-            catch (System.Net.Sockets.SocketException)
-            {
-                // socket exception
-                return new Tuple<bool, int>(false, 1); 
-            }
-            catch (Renci.SshNet.Common.SshAuthenticationException)
-            {
-                // authentication exception
-                return new Tuple<bool, int>(false, 2);
-            }
-
-            // successfully connected
-            return new Tuple<bool, int>(true, 0);
-        }
-
-        public RouterInfo defaultCredentials()
-        {
-            RouterInfo ri = new RouterInfo(defIP, defUser, defPass);
-            return ri;
-        }
-
-        public Tuple<string, bool> getModel(string host, string user, string password)
-        {
-            // connect to router and create a file with router info
-            var ghost = host;
-            SshClient client = new SshClient(ghost, user, password);
-            try
-            {
-                client.Connect();
-            }
-            catch (System.Net.Sockets.SocketException)
-            {
-                ghost = "192.168.88.1";
-                client = new SshClient(ghost, user, password);
-                client.Connect();
-            }
-            client.RunCommand("system routerboard print file=\"model.txt\"");
-            // create scp client to get file
-            ScpClient scpClient = new ScpClient(ghost, user, password);
-            scpClient.Connect();
-            // create stream for file to write to, ensure the FileAccess and FileShare are .ReadWrite so that
-            // we are able to edit once we open the file
-            var r = new Random();
-            string path = Directory.GetCurrentDirectory() + $"\\junk\\{r.Next(100000)}.txt";
-            Stream file1 = File.Open(path, FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite);
-            scpClient.Download("/model.txt", file1);
-            // wait while we download file
-            Thread.Sleep(100);
-            // remove file from router
-            client.RunCommand("/file remove model.txt");
-            // disconnect clients
-            client.Disconnect();
-            client.Dispose();
-            scpClient.Disconnect();
-            scpClient.Dispose();
-
-            // we are using "using()" so that we can separately handle the thread to open the file and read it
-            using (FileStream fileStream = File.Open(path,
-                   FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
-            {
-                // same concept for the reader
-                using (StreamReader streamReader = new StreamReader(fileStream))
+                try
                 {
-                    int i = 0;
-                    // iterate through the lines until we find a line that contains our model
-                    while (streamReader.Peek() > -1)
-                    {
-                        string line = streamReader.ReadLine();
-                        if (line.Contains("RBD52G"))
-                        {
-                            return new Tuple<string, bool>("RBD52G", true);
-                        }
+                    connection.Open(host, defaultCredentials[0, i], defaultCredentials[1, i]);
+                    routerinfo.setHost(host);
+                    routerinfo.setUser(defaultCredentials[0, i]);
+                    routerinfo.setPassword(defaultCredentials[1, i]);
+                    connected = true;
+                }
+                catch (Exception) { }
+                i++;
+            }
+            connection.Close();
+            return routerinfo;
+        }
 
-                        if (line.Contains("951Ui"))
-                        {
-                            return new Tuple<string, bool>("951Ui", false);
-                        }
-                        i++;
-                    }
+        public string getModel(RouterInfo routerinfo)
+        {
+            // create the connection
+            ITikConnection connection = ConnectionFactory.CreateConnection(TikConnectionType.Api);
+            connection.Open(routerinfo.host, routerinfo.user, routerinfo.password);
+
+            // create the command to retrieve the model
+            ITikCommand getModel = connection.CreateCommand("/system/resource/print");
+            var list = getModel.ExecuteList();
+            foreach (ITikReSentence item in list)
+            {
+                if (item.ToString().Contains("arm"))
+                {
+                    return "arm";
+                }
+                if (item.ToString().Contains("mipsbe"))
+                {
+                    return "mipsbe";
                 }
             }
             return null;
@@ -175,27 +132,6 @@ namespace MikrotikConfig
             }
             catch (Renci.SshNet.Common.SshConnectionException) { }
             client.Dispose();
-        }
-        public string[] getCredentials()
-        {
-            string[,] defaultCredentials = new string[2, 5] { { "admin", "admin", "admin", "admin", "wroknet" },
-                                                            { "R3sound810", "R3sound810!", "Rn3t720", "Rn3t720!", "H4rv3st3r!" } };
-            // loop through defaultCredentials until we find the correct credentials
-            for (int i = 0; i < defaultCredentials.GetLength(0); i++)
-            {
-                SshClient client = new SshClient(defIP, defaultCredentials[0, i], defaultCredentials[1, i]);
-                try
-                {
-                    client.Connect();
-                }
-                catch (Renci.SshNet.Common.SshAuthenticationException) { }
-
-                if (client.IsConnected == true)
-                {
-                    return new string[] { defaultCredentials[0, i], defaultCredentials[1, i] };
-                }
-            }
-            return null;
         }
 
         public void pingRouter(RouterInfo routerinfo)

@@ -5,43 +5,23 @@ using System.IO;
 using System.Reflection;
 using System.Resources;
 using System.Threading;
+using tik4net;
 
 namespace MikrotikConfig
 {
     class Controller
     {
         RouterUtility ru = new RouterUtility();
-        public string name { get; set; }
         public Controller() { }
-        public Tuple<bool, int> initiateConfiguration()
-        {
-            // first we test to see if we are on a default router
-            var decision = ru.isNewRouter();
 
-            return decision;
+        public RouterInfo initializeRouter()
+        {
+            return ru.initializeRouter();
         }
-
-        public RouterInfo getDefaultCredentials()
+        
+        public string getRouterModel(RouterInfo routerinfo)
         {
-            var defaultCredentials = ru.defaultCredentials();
-            return defaultCredentials;
-        }
-
-        public void scriptHeader()
-        {
-            var r = new Random();
-            name = $"log-{r.Next(100000)}.rsc";
-
-            // this line will be at the start of every script so that we can run the script on reboot
-            string header = "/system script add name=defaultConfig policy=ftp,read,write,policy,test,reboot,sniff,sensitive,romon,password source=\"\n";
-            using (FileStream stream = File.Open(Directory.GetCurrentDirectory() + $"\\junk\\{name}",
-                  FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite))
-            {
-                using (StreamWriter writer = new StreamWriter(stream))
-                {
-                    writer.Write(header);
-                }
-            }
+            return ru.getModel(routerinfo);
         }
 
         public void ptpConfig(List<string[]> devices, string wanIP)
@@ -80,47 +60,6 @@ namespace MikrotikConfig
                 return 8291;
             }
             return 443;
-        }
-        public void uploadScript(string username, string password, string model)
-        {
-            string final = "";
-            List<string> commands = new List<string>();
-            commands.Add("/system script remove defaultConfig");
-            commands.Add("/system scheduler remove runConfig");
-            commands.Add($"/file remove {name}");
-            foreach (string command in commands)
-            {
-                final += command + "\n";
-            }
-            final += "\"";
-            appendScript(final);
-            string host = "192.168.88.1";
-            SftpClient client = new SftpClient(host, username, password);
-            client.Connect();
-
-            string path = Directory.GetCurrentDirectory() + $"\\junk\\{name}";
-            FileInfo info = new FileInfo(path);
-            string uploadFile = info.FullName;
-
-            using (FileStream stream = File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
-            {
-                client.UploadFile(stream, info.Name, null);
-            }
-
-
-            SshClient ssh = new SshClient(host, username, password);
-            ssh.Connect();
-            ssh.RunCommand("/system scheduler add name=runConfig on-event=defaultConfig start-time=startup interval=0");
-            ssh.RunCommand($"/import {name}");
-            updateRouter(model, host, username, password);
-            Thread.Sleep(20000);
-            try
-            {
-                ssh.RunCommand("/system reboot");
-            }
-            catch (Renci.SshNet.Common.SshConnectionException) { }
-            client.Disconnect();
-            ssh.Disconnect();
         }
 
         private void updateRouter(string model, string host, string username, string password)
@@ -294,10 +233,19 @@ namespace MikrotikConfig
         }
         // function to initiate making the script, inserts the header which will always be on the script and  
         // inserts the questions from the new configure questionaire
-        public void makeScript(string q1, string q2, string q3, bool isDual)
+        public void executeConfiguration(string q1, string q2, string q3, bool isDual, RouterInfo routerinfo)
         {
-            string script = createString(q1, q2, q3, isDual);
-            appendScript(script);
+            // create connection
+            ITikConnection connection = ConnectionFactory.CreateConnection(TikConnectionType.Api);
+            connection.Open(routerinfo.host, routerinfo.user, routerinfo.password);
+            // dummy command
+            ITikCommand cmd;
+
+            // set identity
+            cmd = connection.CreateCommandAndParameters("/system/identity/set", "=name", q1);
+            cmd.ExecuteList();
+
+            //
         }
         public void makeScript(string q1, string q2, string q3, bool isDual, string q4)
         {
@@ -305,18 +253,6 @@ namespace MikrotikConfig
             appendScript(script);
         }
         // function to add something to the script
-        private void appendScript(string appendText)
-        {
-            string path = Directory.GetCurrentDirectory() + $"\\junk\\{name}";
-            using (StreamWriter writer = File.AppendText(path))
-            {
-                writer.WriteLine(appendText);
-            }
-        }
 
-        public void setName(string name)
-        {
-            this.name = name;
-        }
     }
 }

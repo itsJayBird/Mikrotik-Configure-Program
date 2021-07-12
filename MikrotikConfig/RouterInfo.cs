@@ -10,7 +10,6 @@ namespace MikrotikConfig
         public string user { get; set; }
         public string password { get; set; }
         public string model { get; set; }
-        public string fileName { get; set; }
 
         public RouterInfo() { }
         public RouterInfo(string host, string user, string password)
@@ -35,10 +34,6 @@ namespace MikrotikConfig
         public void setModel(string model)
         {
             this.model = model;
-        }
-        public void setFileName(string fileName)
-        {
-            this.fileName = fileName;
         }
     }
 }
