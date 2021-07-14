@@ -75,13 +75,6 @@ namespace MikrotikConfig
 
         private void confirmClick(object sender, RoutedEventArgs e)
         {
-            //make sure we add anything in the text field
-            //string a = "";
-            //foreach (string[] rules in rule)
-            //{
-            //    a += rules[0] + " " + rules[1] + "\n";
-            //}
-            //MessageBox.Show(a);
             if (addr.Text.Length > 1)
             {
                 bool canContinue = checkButtons();
@@ -120,19 +113,18 @@ namespace MikrotikConfig
 
             // GET WAN IP FROM ROUTER, THIS WILL BE THE ADDRESS THE
             // RULES ARE FORWARDED TO
-            string wanIP = ru.getWANIP(routerinfo.user, routerinfo.password);
+            string wanIP = ru.getWANIP(routerinfo);
             (sender as BackgroundWorker).ReportProgress(66);
 
             // finally send the ptp script over
-            controller.setName(routerinfo.fileName);
-            controller.ptpConfig(rule, wanIP);
+            controller.ptpConfiguration(rule, wanIP, routerinfo);
             (sender as BackgroundWorker).ReportProgress(100);
-            MessageBox.Show("PTP Configuration added successfully!");
+            MessageBox.Show("PTP configured successfully!");
 
             //back to main menu
             Application.Current.Dispatcher.Invoke((Action)delegate
             {
-                ConfirmExit s = new ConfirmExit(routerinfo);
+                StartUp s = new StartUp();
                 NavigationService.Navigate(s);
             });
 

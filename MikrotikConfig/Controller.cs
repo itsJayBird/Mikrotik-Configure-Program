@@ -1,9 +1,7 @@
 ﻿using Renci.SshNet;
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
-using System.Resources;
 using System.Threading;
 using tik4net;
 
@@ -24,33 +22,44 @@ namespace MikrotikConfig
             return ru.getModel(routerinfo);
         }
 
-        public void ptpConfig(List<string[]> devices, string wanIP)
+        public void ptpConfiguration(List<string[]> devices, string wanIP, RouterInfo routerinfo)
         {
-            if (wanIP == "")
+            if(wanIP == "")
             {
                 wanIP = "192.168.88.1";
             }
-            // create a list of commands we are going to be sending the router
-            List<string> commands = new List<string>();
-            commands.Add(":delay 10s;");
-            //  add each forwarding rule to the list for each device in the links we are adding
+            // create connection
+            ITikConnection connection = ConnectionFactory.CreateConnection(TikConnectionType.Api);
+            connection.Open(routerinfo.host, routerinfo.user, routerinfo.password);
+
+            // dummy command
+            ITikCommand cmd;
+
+            // add subnet
+            cmd = connection.CreateCommandAndParameters("/ip/address/add",
+                                                        "=address", "192.168.1.1/24",
+                                                        "=interface", "bridge",
+                                                        "=comment", "PTP-Subnet");
+            cmd.ExecuteList();
+
+            // loop through each device and add rules
             int port = 5001;
             foreach (string[] device in devices)
             {
                 int portNum = getPort(device[1]);
-                string devName = "\\\"" + device[1] + "\\\"";
-                string tmpRule = $"/ip firewall nat add chain=dstnat action=dst-nat to-addresses={device[0]} to-ports={portNum} " +
-                                 $"protocol=tcp dst-address={wanIP} in-interface=ether1-WAN dst-port={port} comment=\\\"{device[1]}\\\"";
-                commands.Add(tmpRule);
+                cmd = connection.CreateCommandAndParameters("/ip/firewall/nat/add",
+                                                            "=chain", "dstnat",
+                                                            "=action", "dst-nat",
+                                                            "=to-addresses", device[0],
+                                                            "=to-ports", portNum.ToString(),
+                                                            "=protocol", "tcp",
+                                                            "=dst-address", wanIP,
+                                                            "=in-interface", "ether1-WAN",
+                                                            "=dst-port", port.ToString(),
+                                                            "=comment", device[1]);
+                cmd.ExecuteList();
                 port++;
             }
-            commands.Add("/ip address add address=192.168.1.1/24 network=192.168.1.0 interface=bridge comment=\\\"PTP-Subnet\\\"");
-            string commandList = "\n";
-            foreach (string command in commands)
-            {
-                commandList += command + "\n";
-            }
-            appendScript(commandList);
         }
 
         private int getPort(string device)
@@ -103,156 +112,251 @@ namespace MikrotikConfig
 
         }
 
-
-        private string createString(string q1, string q2, string q3, bool isDual, string secondaryIP)
-        {
-            List<string> commands = new List<string>();
-            string subnetIP = secondaryIP + "/24";
-            // set identity
-            commands.Add(":delay 10s;");
-            commands.Add($"/system identity set name=\\\"{q1}\\\"");
-            // snmp settings
-            commands.Add("/snmp set enabled=yes");
-            commands.Add("/snmp set contact=\\\"Resound Networks LLC\\\"");
-            commands.Add($"/snmp set location=\\\"{q1}\\\"");
-            commands.Add("/snmp community add name=\\\"Resound1104\\\"");
-            commands.Add("/snmp set trap-community=\\\"Resound1104\\\"");
-            commands.Add("/snmp set trap-version=\\\"1\\\"");
-            //ntp settings
-            commands.Add("/system ntp client set enabled=yes");
-            commands.Add("/system ntp client set primary-ntp=\\\"129.6.15.28\\\"");
-            commands.Add("/system ntp client set secondary-ntp=\\\"129.6.15.29\\\"");
-            //dns settings
-            commands.Add("/ip dns set allow-remote-requests=no");
-            commands.Add("/ip dns set servers=\\\"8.8.8.8,1.1.1.1\\\"");
-            //wireless settings
-            commands.Add("/interface wireless security-profiles set [find default=yes] authentication-types=wpa2-psk " +
-                  $"eap-methods=\\\"\\\" mode=dynamic-keys supplicant-identity=Mikrotik wpa2-pre-shared-key=\\\"{q3}\\\"");
-            commands.Add("/interface wireless set wlan1 mode=ap-bridge band=2ghz-b/g/n " +
-                              "disabled=no wireless-protocol=802.11 distance=indoors channel-width=20mhz " +
-                              $"frequency=auto ssid=\\\"{q2}-2ghz\\\" frequency-mode=regulatory-domain country=\\\"united states3\\\"");
-            if (isDual == true)
-            {
-                commands.Add("/interface wireless set wlan2 mode=ap-bridge band=5ghz-a/n/ac disabled=no wireless-protocol=802.11" +
-                                  $" distance=indoors channel-width=20mhz frequency=auto ssid=\\\"{q2}-5ghz\\\" " +
-                                  "frequency-mode=regulatory-domain country=\\\"united states3\\\"");
-            }
-            //port maintenance
-            commands.Add("/interface ethernet set 0 name=\\\"ether1-WAN\\\"");
-            commands.Add("/interface ethernet set 1 name=\\\"ether2\\\"");
-            commands.Add("/interface ethernet set 2 name=\\\"ether3\\\"");
-            commands.Add("/interface ethernet set 3 name=\\\"ether4\\\"");
-            commands.Add("/interface ethernet set 4 name=\\\"ether5\\\"");
-            commands.Add("/interface bridge port add interface=ether1-WAN trust=no priority=80 path-cost=10 bridge=bridge");
-            //upnp settings
-            commands.Add("/ip upnp set allow-disable-external-interface=yes");
-            commands.Add("/ip upnp set enabled=yes");
-            commands.Add("/ip upnp set show-dummy-rule=yes");
-            commands.Add("/ip upnp interfaces add interface=\\\"ether1-WAN\\\" type=external");
-            commands.Add("/ip upnp interfaces add interface=bridge type=internal");
-            //remove firewall rules
-            commands.Add("/ip firewall filter remove 1,2,3,4,5,6,7,8,9,10");
-            //DHCP settings
-            commands.Add("/ip dhcp-server network set dns-server=\\\"8.8.8.8,1.1.1.1\\\" 0");
-            commands.Add("/ip dhcp-client remove numbers=0");
-            commands.Add("/ip dhcp-relay add name=relay1 interface=bridge dhcp-server=192.168.88.1 disabled=no");
-            commands.Add("/ip dhcp-server remove numbers=0");
-            //Address settings
-            commands.Add($"/ip address add address={subnetIP} interface=bridge network=192.168.1.0");
-            //Finally set the password
-            commands.Add("/password old-password=\\\"\\\" new-password=\\\"R3sound810\\\" confirm-new-password=\\\"R3sound810\\\"");
-            commands.Add("/ip address remove numbers=0");
-
-            string script = "";
-            foreach (string command in commands)
-            {
-                script += command + "\n";
-            }
-
-            return script;
-        }
-        private string createString(string q1, string q2, string q3, bool isDual)
-        {
-            List<string> commands = new List<string>();
-            commands.Add(":delay 10s;");
-            commands.Add($"/system identity set name=\\\"{q1}\\\"");
-            commands.Add("/snmp set enabled=yes");
-            commands.Add("/snmp set contact=\\\"Resound Networks LLC\\\"");
-            commands.Add($"/snmp set location=\\\"{q1}\\\"");
-            commands.Add("/snmp community add name=\\\"Resound1104\\\"");
-            commands.Add("/snmp set trap-community=\\\"Resound1104\\\"");
-            commands.Add("/snmp set trap-version=\\\"1\\\"");
-            //ntp settings
-            commands.Add("/system ntp client set enabled=yes");
-            commands.Add("/system ntp client set primary-ntp=\\\"129.6.15.28\\\"");
-            commands.Add("/system ntp client set secondary-ntp=\\\"129.6.15.29\\\"");
-            //dns settings
-            commands.Add("/ip dns set allow-remote-requests=no");
-            commands.Add("/ip dns set servers=\\\"8.8.8.8,1.1.1.1\\\"");
-            //wireless settings
-            commands.Add("/interface wireless security-profiles set [find default=yes] authentication-types=wpa2-psk " +
-                  $"eap-methods=\\\"\\\" mode=dynamic-keys supplicant-identity=Mikrotik wpa2-pre-shared-key=\\\"{q3}\\\"");
-            commands.Add("/interface wireless set wlan1 mode=ap-bridge band=2ghz-b/g/n " +
-                              "disabled=no wireless-protocol=802.11 distance=indoors channel-width=20mhz " +
-                              $"frequency=auto ssid=\\\"{q2}-2ghz\\\" frequency-mode=regulatory-domain country=\\\"united states3\\\"");
-            if (isDual == true)
-            {
-                commands.Add("/interface wireless set wlan2 mode=ap-bridge band=5ghz-a/n/ac disabled=no wireless-protocol=802.11" +
-                                  $" distance=indoors channel-width=20mhz frequency=auto ssid=\\\"{q2}-5ghz\\\" " +
-                                  "frequency-mode=regulatory-domain country=\\\"united states3\\\"");
-            }
-            //port maintenance
-            commands.Add("/interface ethernet set 0 name=\\\"ether1-WAN\\\"");
-            commands.Add("/interface ethernet set 1 name=\\\"ether2\\\"");
-            commands.Add("/interface ethernet set 2 name=\\\"ether3\\\"");
-            commands.Add("/interface ethernet set 3 name=\\\"ether4\\\"");
-            commands.Add("/interface ethernet set 4 name=\\\"ether5\\\"");
-            //upnp settings
-            commands.Add("/ip upnp set allow-disable-external-interface=yes");
-            commands.Add("/ip upnp set enabled=yes");
-            commands.Add("/ip upnp set show-dummy-rule=yes");
-            commands.Add("/ip upnp interfaces add interface=\\\"ether1-WAN\\\" type=external");
-            commands.Add("/ip upnp interfaces add interface=bridge type=internal");
-            //remove firewall rules
-            commands.Add("/ip firewall filter remove 1,2,3,4,5,6,7,8,9,10");
-            commands.Add("/ip firewall nat set 0 action=masquerade chain=srcnat " +
-                              "comment=\\\"defconf: masquerade\\\" out-interface=\\\"ether1-WAN\\\"");
-            //DHCP settings
-            commands.Add("/ip dhcp-client set interface=\\\"ether1-WAN\\\" 0");
-            commands.Add("/ip dhcp-server network set dns-server=\\\"8.8.8.8,1.1.1.1\\\" 0");
-            //Finally set the password
-            commands.Add("/password old-password=\\\"\\\" new-password=\\\"R3sound810\\\" confirm-new-password=\\\"R3sound810\\\"");
-
-            string script = "";
-            foreach (string command in commands)
-            {
-                script += command + "\n";
-            }
-
-            return script;
-        }
-        // function to initiate making the script, inserts the header which will always be on the script and  
-        // inserts the questions from the new configure questionaire
-        public void executeConfiguration(string q1, string q2, string q3, bool isDual, RouterInfo routerinfo)
+        public void executeConfiguration(string customerName, string wifiName, string wifiPassword,
+                                          string secondaryIP, RouterInfo routerinfo)
         {
             // create connection
             ITikConnection connection = ConnectionFactory.CreateConnection(TikConnectionType.Api);
             connection.Open(routerinfo.host, routerinfo.user, routerinfo.password);
+
             // dummy command
             ITikCommand cmd;
 
             // set identity
-            cmd = connection.CreateCommandAndParameters("/system/identity/set", "=name", q1);
+            cmd = connection.CreateCommandAndParameters("/system/identity/set",
+                                                        "=name", customerName);
             cmd.ExecuteList();
 
-            //
-        }
-        public void makeScript(string q1, string q2, string q3, bool isDual, string q4)
-        {
-            string script = createString(q1, q2, q3, isDual, q4);
-            appendScript(script);
-        }
-        // function to add something to the script
+            // set snmp
+            cmd = connection.CreateCommandAndParameters("/snmp/community/add",
+                                                        "=name", "Resound1104");
+            cmd.ExecuteList();
+            cmd = connection.CreateCommandAndParameters("/snmp/set",
+                                                        "=enabled", "yes",
+                                                        "=contact", "Resound Networks LLC",
+                                                        "=location", customerName,
+                                                        "=trap-community", "Resound1104",
+                                                        "=trap-version", "1");
+            cmd.ExecuteList();
 
+            // set ntp
+            cmd = connection.CreateCommandAndParameters("/system/ntp/client/set",
+                                                        "=enabled", "yes",
+                                                        "=primary-ntp", "129.6.15.28",
+                                                        "=primary-ntp", "129.6.15.29");
+            cmd.ExecuteList();
+
+            // set dns
+            cmd = connection.CreateCommandAndParameters("/ip/dns/set",
+                                                        "=allow-remote-requests", "no",
+                                                        "=servers", "8.8.8.8,1.1.1.1");
+            cmd.ExecuteList();
+
+            // set wireless settings
+            cmd = connection.CreateCommandAndParameters("/interface/wireless/security-profiles/set",
+                                                       "=numbers", "default",
+                                                       "=authentication-types", "wpa2-psk",
+                                                       "=mode", "dynamic-keys",
+                                                       "=supplicant-identity", "Mikrotik",
+                                                       "=wpa2-pre-shared-key", wifiPassword);
+            cmd.ExecuteList();
+            cmd = connection.CreateCommandAndParameters("/interface/wireless/set",
+                                                        "=numbers", "wlan1",
+                                                        "=disabled", "no",
+                                                        "=channel-width", "20mhz",
+                                                        "=frequency", "auto",
+                                                        "=ssid", $"{wifiName}-2ghz",
+                                                        "=frequency-mode", "regulatory-domain",
+                                                        "=country", "united states3");
+            cmd.ExecuteList();
+            if (routerinfo.model == "arm")
+            {
+                cmd = connection.CreateCommandAndParameters("/interface/wireless/set",
+                                                            "=numbers", "wlan2",
+                                                            "=disabled", "no",
+                                                            "=channel-width", "20mhz",
+                                                            "=frequency", "auto",
+                                                            "=ssid", $"{wifiName}-5ghz",
+                                                            "=frequency-mode", "regulatory-domain",
+                                                            "=country", "united states3");
+                cmd.ExecuteList();
+            }
+
+           // set port names
+           cmd = connection.CreateCommandAndParameters("/interface/ethernet/set",
+                                                       "=numbers", "0",
+                                                       "=name", "ether1-WAN");
+            cmd.ExecuteList();
+            cmd = connection.CreateCommandAndParameters("/interface/bridge/port/add",
+                                                        "=interface", "ether1-WAN",
+                                                        "=bridge", "bridge");
+            cmd.ExecuteList();
+
+            // remove firewall rules
+            cmd = connection.CreateCommandAndParameters("/ip/firewall/filter/remove",
+                                                        "=numbers", "1,2,3,4,5,6,7,8,9,10,11");
+            cmd.ExecuteList();
+
+            // set DHCP settings
+            cmd = connection.CreateCommandAndParameters("/ip/dhcp-server/network/set",
+                                                        "=dns-server", "8.8.8.8,1.1.1.1",
+                                                        "=numbers", "0");
+            cmd.ExecuteList();
+            cmd = connection.CreateCommandAndParameters("/ip/dhcp-client/remove",
+                                                        "=numbers", "0");
+            cmd.ExecuteList();
+            cmd = connection.CreateCommandAndParameters("/ip/dhcp-relay/add",
+                                                        "=name", "relay1",
+                                                        "=interface", "bridge",
+                                                        "=dhcp-server", "192.168.88.1",
+                                                        "=disabled", "no");
+            cmd.ExecuteList();
+            cmd = connection.CreateCommandAndParameters("/ip/dhcp-server/remove",
+                                                        "=numbers", "0");
+            cmd.ExecuteList();
+
+            // set address
+            cmd = connection.CreateCommandAndParameters("/ip/address/add",
+                                                         "=address", secondaryIP,
+                                                         "=interface", "bridge");
+            cmd.ExecuteList();
+
+            // reconnect on new IP
+            connection.Close();
+            connection.Open(secondaryIP, routerinfo.user, routerinfo.password);
+
+            cmd = connection.CreateCommandAndParameters("/ip/address/remove",
+                                                        "=numbers", "0");
+            cmd.ExecuteList();
+
+            // set password
+            cmd = connection.CreateCommandAndParameters("/password",
+                                                        "=old-password", "",
+                                                        "=new-password", "R3sound810",
+                                                        "=confirm-new-password", "R3sound810");
+            cmd.ExecuteList();
+
+            // close connection
+            connection.Close();
+        }
+        public void executeConfiguration(string customerName, string wifiName, string wifiPassword, RouterInfo routerinfo)
+        {
+            // create connection
+            ITikConnection connection = ConnectionFactory.CreateConnection(TikConnectionType.Api);
+            connection.Open(routerinfo.host, routerinfo.user, routerinfo.password);
+
+            // dummy command
+            ITikCommand cmd;
+
+            // set identity
+            cmd = connection.CreateCommandAndParameters("/system/identity/set",
+                                                        "=name", customerName);
+            cmd.ExecuteList();
+
+            // set snmp
+            cmd = connection.CreateCommandAndParameters("/snmp/community/add",
+                                                        "=name", "Resound1104");
+            cmd.ExecuteList();
+            cmd = connection.CreateCommandAndParameters("/snmp/set",
+                                                        "=enabled", "yes",
+                                                        "=contact", "Resound Networks LLC",
+                                                        "=location", customerName,
+                                                        "=trap-community", "Resound1104",
+                                                        "=trap-version", "1");
+            cmd.ExecuteList();
+
+            // set ntp
+            cmd = connection.CreateCommandAndParameters("/system/ntp/client/set",
+                                                        "=enabled", "yes",
+                                                        "=primary-ntp", "129.6.15.28",
+                                                        "=primary-ntp", "129.6.15.29");
+            cmd.ExecuteList();
+
+            // set dns
+            cmd = connection.CreateCommandAndParameters("/ip/dns/set",
+                                                        "=allow-remote-requests", "no",
+                                                        "=servers", "8.8.8.8,1.1.1.1");
+            cmd.ExecuteList();
+
+            // set wireless settings
+            cmd = connection.CreateCommandAndParameters("/interface/wireless/security-profiles/set",
+                                                        "=numbers", "default",
+                                                        "=authentication-types", "wpa2-psk",
+                                                        "=mode", "dynamic-keys",
+                                                        "=supplicant-identity", "Mikrotik",
+                                                        "=wpa2-pre-shared-key", wifiPassword);
+            cmd.ExecuteList();
+            cmd = connection.CreateCommandAndParameters("/interface/wireless/set",
+                                                        "=numbers", "wlan1",
+                                                        "=disabled", "no",
+                                                        "=channel-width", "20mhz",
+                                                        "=frequency", "auto",
+                                                        "=ssid", $"{wifiName}-2ghz",
+                                                        "=frequency-mode", "regulatory-domain",
+                                                        "=country", "united states3");
+            cmd.ExecuteList();
+            if (routerinfo.model == "arm")
+            {
+                cmd = connection.CreateCommandAndParameters("/interface/wireless/set",
+                                                            "=numbers", "wlan2",
+                                                            "=disabled", "no",
+                                                            "=channel-width", "20mhz",
+                                                            "=frequency", "auto",
+                                                            "=ssid", $"{wifiName}-5ghz",
+                                                            "=frequency-mode", "regulatory-domain",
+                                                            "=country", "united states3");
+                cmd.ExecuteList();
+            }
+
+            // set port names
+            cmd = connection.CreateCommandAndParameters("/interface/ethernet/set",
+                                                        "=numbers", "0",
+                                                        "=name", "ether1-WAN");
+            cmd.ExecuteList();
+
+            // set upnp settings
+            cmd = connection.CreateCommandAndParameters("/ip/upnp/set",
+                                                        "=allow-disable-external-interface", "yes",
+                                                        "=enabled", "yes",
+                                                        "=show-dummy-rule", "yes");
+            cmd.ExecuteList();
+            cmd = connection.CreateCommandAndParameters("/ip/upnp/interfaces/add",
+                                                        "=interface", "ether1-WAN",
+                                                        "=type", "external");
+            cmd.ExecuteList();
+            cmd = connection.CreateCommandAndParameters("/ip/upnp/interfaces/add",
+                                                        "=interface", "bridge",
+                                                        "=type", "internal");
+            cmd.ExecuteList();
+
+            // remove firewall rules
+            cmd = connection.CreateCommandAndParameters("/ip/firewall/filter/remove",
+                                                        "=numbers", "1,2,3,4,5,6,7,8,9,10,11");
+            cmd.ExecuteList();
+            cmd = connection.CreateCommandAndParameters("/ip/firewall/nat/set",
+                                                        "=numbers", "0",
+                                                        "=out-interface", "ether1-WAN");
+            cmd.ExecuteList();
+
+            // set DHCP settings
+            cmd = connection.CreateCommandAndParameters("/ip/dhcp-client/set",
+                                                        "=interface", "ether1-WAN",
+                                                        "=numbers", "0");
+            cmd.ExecuteList();
+            cmd = connection.CreateCommandAndParameters("/ip/dhcp-server/network/set",
+                                                        "=dns-server", "8.8.8.8,1.1.1.1",
+                                                        "=numbers", "0");
+            cmd.ExecuteList();
+
+            // set password
+            cmd = connection.CreateCommandAndParameters("/password",
+                                                        "=old-password", "",
+                                                        "=new-password", "R3sound810",
+                                                        "=confirm-new-password", "R3sound810");
+            cmd.ExecuteList();
+
+            // close connection
+            connection.Close();
+        }
     }
 }

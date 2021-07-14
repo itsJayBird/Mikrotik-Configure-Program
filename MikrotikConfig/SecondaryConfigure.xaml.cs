@@ -46,19 +46,19 @@ namespace MikrotikConfig
         void worker_DoWork(object sender, DoWorkEventArgs e)
         {
             //gather information for the controller
-            string q1 = "";
-            string q2 = "";
-            string q3 = "";
-            string q4 = "";
+            string customerName = "";
+            string wifiName = "";
+            string wifiPassword = "";
+            string secondaryIP = "";
             Application.Current.Dispatcher.Invoke((Action)delegate
             {
-                q1 = this.q1.Text.Trim();
-                q2 = this.q2.Text.Trim();
-                q3 = this.q3.Text.Trim();
-                q4 = this.q4.Text.Trim();
+                customerName = this.q1.Text.Trim();
+                wifiName = this.q2.Text.Trim();
+                wifiPassword = this.q3.Text.Trim();
+                secondaryIP = this.q4.Text.Trim();
             });
 
-            if (q3.Length < 8)
+            if (wifiPassword.Length < 8)
             {
                 MessageBox.Show("Password must be longer than 8 characters!");
                 (sender as BackgroundWorker).ReportProgress(0);
@@ -68,18 +68,16 @@ namespace MikrotikConfig
             {
                 // CREATE THE CONTROLLERS
                 Controller controller = new Controller();
-                RouterUtility ru = new RouterUtility();
                 (sender as BackgroundWorker).ReportProgress(25);
 
                 // USE THE UTILITY FUNCTION TO GET MODEL INFORMATION
-                Tuple<string, bool> routerModel = ru.getModel(routerinfo.host, routerinfo.user, routerinfo.password);
+                string routerModel = controller.getRouterModel(routerinfo);
+                routerinfo.setModel(routerModel);
                 (sender as BackgroundWorker).ReportProgress(50);
 
                 // run script
-                controller.setName(routerinfo.fileName);
-                controller.makeScript(q1, q2, q3, routerModel.Item2, q4);
-                routerinfo.setHost(q4);
-                MessageBox.Show($"Configuration set! AutoDetected {routerModel.Item1}! Creating script and moving to confirmation!");
+                controller.executeConfiguration(customerName, wifiName, wifiPassword, secondaryIP, routerinfo);
+                MessageBox.Show($"Configuration set!");
                 (sender as BackgroundWorker).ReportProgress(100);
 
                 success = true;
@@ -95,7 +93,7 @@ namespace MikrotikConfig
                 // TO CONFIRM EXIT
                 Dispatcher.Invoke((Action)delegate
                 {
-                    ConfirmExit c = new ConfirmExit(routerinfo);
+                    StartUp c = new StartUp();
                     this.NavigationService.Navigate(c);
                 });
             }

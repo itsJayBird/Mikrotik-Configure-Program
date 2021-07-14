@@ -45,17 +45,17 @@ namespace MikrotikConfig
         void worker_DoWork(object sender, DoWorkEventArgs e)
         {
             //gather information for the controller
-            string q1 = "";
-            string q2 = "";
-            string q3 = "";
+            string customerName = "";
+            string wifiName = "";
+            string wifiPassword = "";
             Application.Current.Dispatcher.Invoke((Action)delegate
             {
-                q1 = this.q1.Text.Trim();
-                q2 = this.q2.Text.Trim();
-                q3 = this.q3.Text.Trim();
+                customerName = this.q1.Text.Trim();
+                wifiName = this.q2.Text.Trim();
+                wifiPassword = this.q3.Text.Trim();
             });
 
-            if (q3.Length < 8)
+            if (wifiPassword.Length < 8)
             {
                 MessageBox.Show("Password must be longer than 8 characters!");
                 (sender as BackgroundWorker).ReportProgress(0);
@@ -73,9 +73,8 @@ namespace MikrotikConfig
                 (sender as BackgroundWorker).ReportProgress(66);
                 Thread.Sleep(100);
 
-                // CREATE THE SCRIPTs
-                controller.setName(routerinfo.fileName);
-                controller.makeScript(q1, q2, q3, routerModel);
+                // CONFIGURE ROUTER
+                controller.executeConfiguration(customerName, wifiName, wifiPassword, routerinfo);
                 (sender as BackgroundWorker).ReportProgress(100);
             }
 
@@ -88,8 +87,8 @@ namespace MikrotikConfig
             {
                 Application.Current.Dispatcher.Invoke((Action)delegate
                 {
-                    ConfirmExit finalCheck = new ConfirmExit(routerinfo);
-                    this.NavigationService.Navigate(finalCheck);
+                    StartUp s = new StartUp();
+                    this.NavigationService.Navigate(s);
                 });
             }
         }

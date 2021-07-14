@@ -28,7 +28,7 @@ namespace MikrotikConfig
         {
             // USE THE RESET METHOD TO RESET THE CONFIGURATION
             RouterUtility ru = new RouterUtility();
-            ru.resetConfig(routerinfo.user, routerinfo.password);
+            ru.resetConfig(routerinfo);
 
             MessageBox.Show("Router is being defaulted! Wait for it to come back online!");
 
