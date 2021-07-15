@@ -14,12 +14,14 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <None Remove="Res\951Ui.npk" />
+    <None Remove="Res\arm.npk" />
     <None Remove="Res\icon.ico" />
     <None Remove="Res\icon.png" />
-    <None Remove="Res\RBD52G.npk" />
+    <None Remove="Res\mipsbe.npk" />
     <None Remove="Res\resLogo.png" />
     <None Remove="Res\resoundLogo.png" />
+    <EmbeddedResource Include="Res\arm.npk" />
+    <EmbeddedResource Include="Res\mipsbe.npk" />
     <None Include="Res\icon.png">
       <Pack>True</Pack>
       <PackagePath></PackagePath>
@@ -28,14 +30,13 @@
 
   <ItemGroup>
     <PackageReference Include="SSH.NET" Version="2020.0.1" />
+    <PackageReference Include="Tamir.SharpSSH" Version="1.1.1.13" />
     <PackageReference Include="tik4net" Version="3.5.0" />
   </ItemGroup>
 
   <ItemGroup>
-    <EmbeddedResource Include="Res\951Ui.npk" />
     <Resource Include="Res\icon.ico" />
     <Resource Include="Res\icon.png" />
-    <EmbeddedResource Include="Res\RBD52G.npk" />
     <Resource Include="Res\resLogo.png" />
     <Resource Include="Res\resoundLogo.png" />
   </ItemGroup>

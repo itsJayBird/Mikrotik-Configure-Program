@@ -25,7 +25,13 @@ namespace MikrotikConfig
         private readonly BackgroundWorker worker = new BackgroundWorker { WorkerReportsProgress = true };
         Controller controller = new Controller();
         public StartUp()
-        { 
+        {
+            string path = Directory.GetCurrentDirectory() + "\\ros.npk";
+            if (File.Exists(path))
+            {
+                File.Delete(path);
+            }
+
             InitializeComponent();
             worker.DoWork += worker_DoWork;
             worker.ProgressChanged += worker_ProgressChanged;
@@ -48,6 +54,32 @@ namespace MikrotikConfig
             // initialize router and grab default credentials
             (sender as BackgroundWorker).ReportProgress(25);
             var routerinfo = controller.initializeRouter();
+
+            // check if we need to update/upgrade
+            if(routerinfo.upgradeChecks.Item2 == true && routerinfo.upgradeChecks.Item1 == false)
+            {
+                // method to set the upgrade script/scheduler in router
+                controller.forceUpgrade(routerinfo);
+            }
+
+            (sender as BackgroundWorker).ReportProgress(33);
+            if(routerinfo.upgradeChecks.Item1 == true)
+            {
+                controller.setUpgradeScript(routerinfo);
+                MessageBox.Show($"Router firmware seems to be out of date!\nCurrently loaded firmware is {routerinfo.currentFW}, the accepted firmware is {routerinfo.masterFW}!\nRouter will reboot shortly, please wait for the second reboot!");
+                (sender as BackgroundWorker).ReportProgress(50);
+                // start upgrade process
+                controller.updateRouter(routerinfo);
+                (sender as BackgroundWorker).ReportProgress(66);
+                // ping router afterwards and go back to main page
+                controller.pingRouter(routerinfo);
+
+                (sender as BackgroundWorker).ReportProgress(100);
+                MessageBox.Show("Please wait for the router to comeback online and start again!");
+
+                // exit app to reset everything
+                Environment.Exit(0);
+            }
             (sender as BackgroundWorker).ReportProgress(50);
 
             // if no connection
@@ -84,5 +116,6 @@ namespace MikrotikConfig
         {
             progressBar.Value = e.ProgressPercentage;
         }
+
     }
 }

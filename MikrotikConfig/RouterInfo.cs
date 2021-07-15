@@ -12,6 +12,8 @@ namespace MikrotikConfig
         public string model { get; set; }
         public string currentFW { get; set; }
         public string upgradeFW { get; set; }
+        public string masterFW { get; }
+        public Tuple<bool, bool> upgradeChecks { get; set; }
 
         public RouterInfo() { }
         public RouterInfo(string host, string user, string password)
@@ -19,6 +21,7 @@ namespace MikrotikConfig
             this.host = host;
             this.user = user;
             this.password = password;
+            this.masterFW = "6.48.3";
         }
 
         public void setHost(string host)
@@ -44,6 +47,10 @@ namespace MikrotikConfig
         public void setUFW(string upgradeFW)
         {
             this.upgradeFW = upgradeFW;
+        }
+        public void setUpgradeChecks(Tuple<bool, bool> checks)
+        {
+            this.upgradeChecks = checks;
         }
     }
 }

@@ -56,12 +56,42 @@ namespace MikrotikConfig
             routerinfo.setUFW(fw[1]);
 
             // check if the FW needs to be updated
+            routerinfo.setUpgradeChecks(checkForUpgrade(routerinfo));
 
+            // get model of the router
+            routerinfo.setModel(getModel(routerinfo));
 
             connection.Close();
             return routerinfo;
         }
         
+        public void setUpgradeScript(RouterInfo routerinfo)
+        {
+            // create the connection
+            ITikConnection connection = ConnectionFactory.CreateConnection(TikConnectionType.Api);
+            connection.Open(routerinfo.host, routerinfo.user, routerinfo.password);
+
+            // dummy command
+            ITikCommand cmd;
+
+            // create command to create the script
+            cmd = connection.CreateCommandAndParameters("/system/script/add",
+                                                        "=name", "upgrade",
+                                                        "=source", $":delay 3s; " +
+                                                                   $"/system routerboard upgrade; " +
+                                                                   $"/system watchdog set watch-address=none; " +
+                                                                   $"/system script remove upgrade; " +
+                                                                   $"/system scheduler remove upgradeSchedule; " +
+                                                                   $"/system reboot;");
+            cmd.ExecuteList();
+            // create command to create the scheduler
+            cmd = connection.CreateCommandAndParameters("/system/scheduler/add",
+                                                        "=name", "upgradeSchedule",
+                                                        "=start-time", "startup",
+                                                        "=on-event", "upgrade");
+            cmd.ExecuteList();
+        }
+
         // returns tuple with two values
         // first if we need to update
         // second if we need to upgrade
@@ -131,6 +161,27 @@ namespace MikrotikConfig
             }
 
             return firmware;
+        }
+
+        public void forceUpgrade(RouterInfo routerinfo)
+        {
+            // create the connection
+            ITikConnection connection = ConnectionFactory.CreateConnection(TikConnectionType.Api);
+
+            connection.Open(routerinfo.host, routerinfo.user, routerinfo.password);
+
+            // dummy command
+            ITikCommand cmd;
+
+            // create teh command to ugprade the router
+            cmd = connection.CreateCommand("/system/routerboard/upgrade");
+            cmd.ExecuteList();
+
+            // reboot the router
+            cmd = connection.CreateCommand("/system/reboot");
+            cmd.ExecuteList();
+
+            pingRouter(routerinfo);
         }
 
         public string getModel(RouterInfo routerinfo)

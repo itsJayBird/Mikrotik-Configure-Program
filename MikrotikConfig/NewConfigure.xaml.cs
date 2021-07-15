@@ -76,6 +76,9 @@ namespace MikrotikConfig
                 // CONFIGURE ROUTER
                 controller.executeConfiguration(customerName, wifiName, wifiPassword, routerinfo);
                 (sender as BackgroundWorker).ReportProgress(100);
+
+                // message
+                MessageBox.Show("Configuration set!");
             }
 
 

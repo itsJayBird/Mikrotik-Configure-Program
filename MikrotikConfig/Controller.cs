@@ -4,6 +4,9 @@ using System.IO;
 using System.Reflection;
 using System.Threading;
 using tik4net;
+using Tamir.SharpSsh;
+using System;
+using System.Text;
 
 namespace MikrotikConfig
 {
@@ -62,6 +65,11 @@ namespace MikrotikConfig
             }
         }
 
+        public void pingRouter(RouterInfo routerinfo)
+        {
+            ru.pingRouter(routerinfo);
+        }
+
         private int getPort(string device)
         {
             if (device.Contains("Mikrotik"))
@@ -70,32 +78,64 @@ namespace MikrotikConfig
             }
             return 443;
         }
-
-        private void updateRouter(string model, string host, string username, string password)
+        public void setUpgradeScript(RouterInfo routerinfo)
         {
+            ru.setUpgradeScript(routerinfo);
+        }
+        public void forceUpgrade(RouterInfo routerinfo)
+        {
+            ru.forceUpgrade(routerinfo);
+        }
+
+        //public void updateRouter(RouterInfo routerinfo)
+        //{
+        //    // create teh connection
+        //    ITikConnection connection = ConnectionFactory.CreateConnection(TikConnectionType.Api);
+        //    connection.Open(routerinfo.host, routerinfo.user, routerinfo.password);
+
+        //    // dummy command
+        //    ITikCommand cmd;
+
+        //    // create the command to update the router
+        //    cmd = connection.CreateCommand("/system/")
+        //}
+
+        public void updateRouter(RouterInfo routerinfo)
+        {
+            // create teh connection
+            ITikConnection connection = ConnectionFactory.CreateConnection(TikConnectionType.Api);
+            connection.Open(routerinfo.host, routerinfo.user, routerinfo.password);
+            ITikCommand cmd;
+
             // get the path for the model specific fw
-            string resName = getResourceName(model);
+            string resName = getResourceName(routerinfo.model);
             Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resName);
 
             //convert file to a stream and reconstruct file
-            FileStream fileStream = File.Open(Directory.GetCurrentDirectory() + "\\ros.npk",
-                                                FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite);
+            FileStream fileStream = File.Open(Directory.GetCurrentDirectory() + $"\\routeros-{routerinfo.model}-{routerinfo.masterFW}.npk",
+                                              FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite);
             for (int i = 0; i < stream.Length; i++)
             {
                 fileStream.WriteByte((byte)stream.ReadByte());
             }
             //now we create the sftp client and connect
-            SftpClient sftpClient = new SftpClient(host, username, password);
+            SftpClient sftpClient = new SftpClient(routerinfo.host, routerinfo.user, routerinfo.password);
             sftpClient.Connect();
-            string path = Directory.GetCurrentDirectory() + "\\ros.npk";
+            string path = Directory.GetCurrentDirectory() + $"\\routeros-{routerinfo.model}-{routerinfo.masterFW}.npk";
             FileInfo f = new FileInfo(path);
             string uploadFile = f.FullName;
             using (FileStream fwStream = File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
             {
+                sftpClient.BufferSize = 128000;
                 sftpClient.UploadFile(fwStream, f.Name, null);
-            }
-            //var fwStream = new FileStream(uploadFile, FileMode.Open);         
+            }         
             fileStream.Close();
+
+            //cmd = connection.CreateCommandAndParameters("/system/watchdog/set",
+            //                                      "=watch-address", "4.20.13.37",
+            //                                      "=ping-timeout", "15");
+            //cmd.ExecuteList();
+
         }
 
         public string getResourceName(string resName)
