@@ -1,10 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading;
-using Renci.SshNet;
 using tik4net;
 
 namespace MikrotikConfig
@@ -46,7 +41,7 @@ namespace MikrotikConfig
                     routerinfo.setPassword(defaultCredentials[1, i]);
                     connected = true;
                 }
-                catch (Exception) { }
+                catch (Exception) {}
                 i++;
             }
 
@@ -75,7 +70,9 @@ namespace MikrotikConfig
             ITikCommand cmd;
 
             // create command to create the script
-            cmd = connection.CreateCommandAndParameters("/system/script/add",
+            try
+            {
+                cmd = connection.CreateCommandAndParameters("/system/script/add",
                                                         "=name", "upgrade",
                                                         "=source", $":delay 3s; " +
                                                                    $"/system routerboard upgrade; " +
@@ -83,13 +80,15 @@ namespace MikrotikConfig
                                                                    $"/system script remove upgrade; " +
                                                                    $"/system scheduler remove upgradeSchedule; " +
                                                                    $"/system reboot;");
-            cmd.ExecuteList();
-            // create command to create the scheduler
-            cmd = connection.CreateCommandAndParameters("/system/scheduler/add",
-                                                        "=name", "upgradeSchedule",
-                                                        "=start-time", "startup",
-                                                        "=on-event", "upgrade");
-            cmd.ExecuteList();
+                cmd.ExecuteList();
+                // create command to create the scheduler
+                cmd = connection.CreateCommandAndParameters("/system/scheduler/add",
+                                                            "=name", "upgradeSchedule",
+                                                            "=start-time", "startup",
+                                                            "=on-event", "upgrade");
+                cmd.ExecuteList();
+            }
+            catch (Exception) { }
         }
 
         // returns tuple with two values

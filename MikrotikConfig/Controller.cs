@@ -1,12 +1,9 @@
-﻿using Renci.SshNet;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
 using System.Threading;
 using tik4net;
-using Tamir.SharpSsh;
-using System;
-using System.Text;
+using WinSCP;
 
 namespace MikrotikConfig
 {
@@ -87,55 +84,67 @@ namespace MikrotikConfig
             ru.forceUpgrade(routerinfo);
         }
 
-        //public void updateRouter(RouterInfo routerinfo)
-        //{
-        //    // create teh connection
-        //    ITikConnection connection = ConnectionFactory.CreateConnection(TikConnectionType.Api);
-        //    connection.Open(routerinfo.host, routerinfo.user, routerinfo.password);
-
-        //    // dummy command
-        //    ITikCommand cmd;
-
-        //    // create the command to update the router
-        //    cmd = connection.CreateCommand("/system/")
-        //}
-
         public void updateRouter(RouterInfo routerinfo)
         {
+            // get path for ros
+
             // create teh connection
             ITikConnection connection = ConnectionFactory.CreateConnection(TikConnectionType.Api);
-            connection.Open(routerinfo.host, routerinfo.user, routerinfo.password);
-            ITikCommand cmd;
+            Session session = new Session();
 
+            // session options for winscp
+            SessionOptions sOP = new SessionOptions
+            {
+                Protocol = Protocol.Sftp,
+                HostName = routerinfo.host,
+                UserName = routerinfo.user,
+                Password = routerinfo.password,
+                SshHostKeyPolicy = SshHostKeyPolicy.GiveUpSecurityAndAcceptAny
+            };
+
+            // create the FW file
             // get the path for the model specific fw
             string resName = getResourceName(routerinfo.model);
             Stream stream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resName);
 
+            // path for the new file
+            var path = Directory.GetCurrentDirectory() + $"\\{routerinfo.model}.npk";
+
             //convert file to a stream and reconstruct file
-            FileStream fileStream = File.Open(Directory.GetCurrentDirectory() + $"\\routeros-{routerinfo.model}-{routerinfo.masterFW}.npk",
-                                              FileMode.Create, FileAccess.ReadWrite, FileShare.ReadWrite);
-            for (int i = 0; i < stream.Length; i++)
-            {
-                fileStream.WriteByte((byte)stream.ReadByte());
-            }
-            //now we create the sftp client and connect
-            SftpClient sftpClient = new SftpClient(routerinfo.host, routerinfo.user, routerinfo.password);
-            sftpClient.Connect();
-            string path = Directory.GetCurrentDirectory() + $"\\routeros-{routerinfo.model}-{routerinfo.masterFW}.npk";
-            FileInfo f = new FileInfo(path);
-            string uploadFile = f.FullName;
-            using (FileStream fwStream = File.Open(path, FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite))
-            {
-                sftpClient.BufferSize = 128000;
-                sftpClient.UploadFile(fwStream, f.Name, null);
-            }         
-            fileStream.Close();
+            BinaryReader br = new BinaryReader(stream);
+            FileStream fs = new FileStream(path, FileMode.Create);
+            BinaryWriter bw = new BinaryWriter(fs);
+            byte[] ba = new byte[stream.Length];
+            stream.Read(ba, 0, ba.Length);
+            bw.Write(ba);
+            br.Close();
+            bw.Close();
+            stream.Close();
 
-            //cmd = connection.CreateCommandAndParameters("/system/watchdog/set",
-            //                                      "=watch-address", "4.20.13.37",
-            //                                      "=ping-timeout", "15");
-            //cmd.ExecuteList();
+            // connect
+            connection.Open(routerinfo.host, routerinfo.user, routerinfo.password);
+            session.Open(sOP);
 
+            // dummy command
+            ITikCommand cmd;
+
+            // upload the file
+            TransferOptions tOP = new TransferOptions()
+            {
+                TransferMode = TransferMode.Binary
+            };
+            TransferOperationResult tResults;
+            tResults = session.PutFiles(path, "/", false, tOP);
+
+            tResults.Check();
+
+            //create command to reboot the router
+            cmd = connection.CreateCommand("/system/reboot");
+            cmd.ExecuteList();
+
+            // close connectoins
+            session.Close();
+            connection.Close();
         }
 
         public string getResourceName(string resName)
@@ -263,6 +272,7 @@ namespace MikrotikConfig
 
             // reconnect on new IP
             connection.Close();
+            Thread.Sleep(1000);
             connection.Open(secondaryIP, routerinfo.user, routerinfo.password);
 
             cmd = connection.CreateCommandAndParameters("/ip/address/remove",
@@ -370,9 +380,19 @@ namespace MikrotikConfig
             cmd.ExecuteList();
 
             // remove firewall rules
-            cmd = connection.CreateCommandAndParameters("/ip/firewall/filter/remove",
+            if(routerinfo.model == "arm")
+            {
+                cmd = connection.CreateCommandAndParameters("/ip/firewall/filter/remove",
                                                         "=numbers", "1,2,3,4,5,6,7,8,9,10,11");
-            cmd.ExecuteList();
+                cmd.ExecuteList();
+            }
+            if (routerinfo.model == "mipsbe")
+            {
+                cmd = connection.CreateCommandAndParameters("/ip/firewall/filter/remove",
+                                                        "=numbers", "1,2,3,4,5,6,7,8,9,10");
+                cmd.ExecuteList();
+            }
+            
             cmd = connection.CreateCommandAndParameters("/ip/firewall/nat/set",
                                                         "=numbers", "0",
                                                         "=out-interface", "ether1-WAN");

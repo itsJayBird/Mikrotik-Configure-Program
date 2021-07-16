@@ -1,17 +1,8 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.ComponentModel;
-using System.Text;
-using System.Threading;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace MikrotikConfig
 {
@@ -50,6 +41,7 @@ namespace MikrotikConfig
             string wifiName = "";
             string wifiPassword = "";
             string secondaryIP = "";
+            Regex r = new Regex("\\b(?:[0-9]{1,3}\\.){3}[0-9]{1}\\b");
             Application.Current.Dispatcher.Invoke((Action)delegate
             {
                 customerName = this.q1.Text.Trim();
@@ -61,6 +53,12 @@ namespace MikrotikConfig
             if (wifiPassword.Length < 8)
             {
                 MessageBox.Show("Password must be longer than 8 characters!");
+                (sender as BackgroundWorker).ReportProgress(0);
+                success = false;
+            }
+            else if (!r.IsMatch(secondaryIP))
+            {
+                MessageBox.Show("Invalid IP address! Try again!");
                 (sender as BackgroundWorker).ReportProgress(0);
                 success = false;
             }
@@ -82,9 +80,6 @@ namespace MikrotikConfig
 
                 success = true;
             }
-
-
-
         }
         void worker_RunWorkerCompleted(object sender, RunWorkerCompletedEventArgs e)
         {

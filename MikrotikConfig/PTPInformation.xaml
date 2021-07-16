@@ -47,7 +47,7 @@
                         Grid.Column="2">
                     <TextBox x:Name="addr"
                              Grid.Column="1"
-                             Padding="5"/>
+                             Padding="1"/>
                 </Border>
             </Grid>
             <Border BorderBrush="DarkGray"

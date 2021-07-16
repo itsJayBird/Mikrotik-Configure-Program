@@ -1,15 +1,6 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace MikrotikConfig
 {
@@ -36,7 +27,8 @@ namespace MikrotikConfig
             Dispatcher.Invoke((Action)delegate
             {
                 ru.pingRouter(routerinfo);
-                Environment.Exit(0);
+                StartUp s = new StartUp();
+                this.NavigationService.Navigate(s);
             });
         }
 

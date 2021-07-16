@@ -1,18 +1,7 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
-using Renci.SshNet;
 using System.IO;
-using System.Threading;
 using System.ComponentModel;
 
 namespace MikrotikConfig
@@ -26,10 +15,14 @@ namespace MikrotikConfig
         Controller controller = new Controller();
         public StartUp()
         {
-            string path = Directory.GetCurrentDirectory() + "\\ros.npk";
-            if (File.Exists(path))
+            string[] files = { "\\arm.npk", "\\mipsbe.npk" };
+            foreach (string file in files)
             {
-                File.Delete(path);
+                string path = Directory.GetCurrentDirectory() + file;
+                if (File.Exists(path))
+                {
+                    File.Delete(path);
+                }
             }
 
             InitializeComponent();
@@ -54,6 +47,12 @@ namespace MikrotikConfig
             // initialize router and grab default credentials
             (sender as BackgroundWorker).ReportProgress(25);
             var routerinfo = controller.initializeRouter();
+            bool updated = false;
+
+            if(routerinfo.upgradeChecks.Item1 == false && routerinfo.upgradeChecks.Item2 == false)
+            {
+                updated = true;
+            }
 
             // check if we need to update/upgrade
             if(routerinfo.upgradeChecks.Item2 == true && routerinfo.upgradeChecks.Item1 == false)
@@ -66,50 +65,57 @@ namespace MikrotikConfig
             if(routerinfo.upgradeChecks.Item1 == true)
             {
                 controller.setUpgradeScript(routerinfo);
-                MessageBox.Show($"Router firmware seems to be out of date!\nCurrently loaded firmware is {routerinfo.currentFW}, the accepted firmware is {routerinfo.masterFW}!\nRouter will reboot shortly, please wait for the second reboot!");
                 (sender as BackgroundWorker).ReportProgress(50);
+                MessageBox.Show($"Router firmware seems to be out of date!\nCurrently loaded firmware is {routerinfo.currentFW}, the accepted firmware is {routerinfo.masterFW}!\nRouter will reboot shortly, please wait for the second reboot!");
+                
                 // start upgrade process
-                controller.updateRouter(routerinfo);
                 (sender as BackgroundWorker).ReportProgress(66);
-                // ping router afterwards and go back to main page
+                controller.updateRouter(routerinfo);
+
+                (sender as BackgroundWorker).ReportProgress(100);
+                MessageBox.Show("Router is updating! Please wait for the router to comeback online and start again!");
+                
+                // ping router afterwards
                 controller.pingRouter(routerinfo);
 
-                (sender as BackgroundWorker).ReportProgress(100);
-                MessageBox.Show("Please wait for the router to comeback online and start again!");
-
                 // exit app to reset everything
-                Environment.Exit(0);
-            }
-            (sender as BackgroundWorker).ReportProgress(50);
-
-            // if no connection
-            if (routerinfo.password == null)
-            {
                 (sender as BackgroundWorker).ReportProgress(0);
-                MessageBox.Show("Unable to connect to router!");
             }
 
-            // if password is blank go to new router selection
-            if (routerinfo.password == "")
+            // if updated is true we continue
+            if (updated)
             {
-                (sender as BackgroundWorker).ReportProgress(100);
-                Application.Current.Dispatcher.Invoke((Action)delegate
+                (sender as BackgroundWorker).ReportProgress(50);
+                // if no connection
+                if (routerinfo.password == null)
                 {
-                    NewRouterSelection nrs = new NewRouterSelection(routerinfo);
-                    this.NavigationService.Navigate(nrs);
-                });
-            }
+                    (sender as BackgroundWorker).ReportProgress(0);
+                    MessageBox.Show("Unable to connect to router!");
+                }
 
-            // if password is anything else go to preconfigured router
-            if (routerinfo.password.Length > 0)
-            {
-                (sender as BackgroundWorker).ReportProgress(100);
-                Application.Current.Dispatcher.Invoke((Action)delegate
+                // if password is blank go to new router selection
+                if (routerinfo.password == "")
                 {
-                    PreconfiguredRouterSelection prs = new PreconfiguredRouterSelection(routerinfo);
-                    this.NavigationService.Navigate(prs);
-                });
+                    (sender as BackgroundWorker).ReportProgress(100);
+                    Application.Current.Dispatcher.Invoke((Action)delegate
+                    {
+                        NewRouterSelection nrs = new NewRouterSelection(routerinfo);
+                        this.NavigationService.Navigate(nrs);
+                    });
+                }
+
+                // if password is anything else go to preconfigured router
+                if (routerinfo.password.Length > 0)
+                {
+                    (sender as BackgroundWorker).ReportProgress(100);
+                    Application.Current.Dispatcher.Invoke((Action)delegate
+                    {
+                        PreconfiguredRouterSelection prs = new PreconfiguredRouterSelection(routerinfo);
+                        this.NavigationService.Navigate(prs);
+                    });
+                }
             }
+            
         }
 
         void worker_ProgressChanged(object sender, ProgressChangedEventArgs e)

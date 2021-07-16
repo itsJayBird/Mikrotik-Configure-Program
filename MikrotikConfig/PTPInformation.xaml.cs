@@ -1,16 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Text;
+using System.Text.RegularExpressions;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
-using System.Windows.Shapes;
 
 namespace MikrotikConfig
 {
@@ -45,10 +39,20 @@ namespace MikrotikConfig
             {
                 // check what it is
                 string buttonName = returnRadioButtonName();
-                rule.Add(new string[] { addr.Text, buttonName });
-                resetRadioButtons();
-                resetTextBox();
-                setupTextBox();
+
+                // check if it is a good IP
+                Regex r = new Regex("\\b(?:[0-9]{1,3}\\.){3}[0-9]{1,3}\\b");
+                if (r.IsMatch(addr.Text))
+                {
+                    rule.Add(new string[] { addr.Text, buttonName });
+                    resetRadioButtons();
+                    resetTextBox();
+                    setupTextBox();
+                }
+                else
+                {
+                    MessageBox.Show("Invalid IP address! Try again!");
+                }
             }
             else
             {
