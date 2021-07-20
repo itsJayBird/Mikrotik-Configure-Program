@@ -54,7 +54,7 @@ namespace MikrotikConfig
             routerinfo.setUpgradeChecks(checkForUpgrade(routerinfo));
 
             // get model of the router
-            routerinfo.setModel(getModel(routerinfo));
+            routerinfo = getModel(routerinfo);
 
             connection.Close();
             return routerinfo;
@@ -183,25 +183,32 @@ namespace MikrotikConfig
             pingRouter(routerinfo);
         }
 
-        public string getModel(RouterInfo routerinfo)
+        public RouterInfo getModel(RouterInfo routerinfo)
         {
             // create the connection
             ITikConnection connection = ConnectionFactory.CreateConnection(TikConnectionType.Api);
             connection.Open(routerinfo.host, routerinfo.user, routerinfo.password);
 
             // create the command to retrieve the model
-            ITikCommand getModel = connection.CreateCommand("/system/resource/print");
-            var list = getModel.ExecuteList();
-            foreach (ITikReSentence item in list)
+            ITikCommand getModel = connection.CreateCommand("/system/resource/get");
+            var list = getModel.ExecuteScalar();
+            if (list.ToString().Contains("arm"))
             {
-                if (item.ToString().Contains("arm"))
-                {
-                    return "arm";
-                }
-                if (item.ToString().Contains("mipsbe"))
-                {
-                    return "mipsbe";
-                }
+                routerinfo.model = "arm";
+                routerinfo.wifiBands = 2;
+                return routerinfo;
+            }
+            if (list.ToString().Contains("RB951"))
+            {
+                routerinfo.model = "mipsbe";
+                routerinfo.wifiBands = 1;
+                return routerinfo;
+            }
+            if (list.ToString().Contains("RB952"))
+            {
+                routerinfo.model = "mipsbe";
+                routerinfo.wifiBands = 2;
+                return routerinfo;
             }
             return null;
         }

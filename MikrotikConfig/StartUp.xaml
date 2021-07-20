@@ -32,7 +32,7 @@
                     <ColumnDefinition Width="3*"/>
                     <ColumnDefinition Width="*"/>
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="Powerd By :    "
+                <TextBlock Text="Powered By :    "
                            HorizontalAlignment="Right"
                            VerticalAlignment="Center"
                            FontSize="15"/>

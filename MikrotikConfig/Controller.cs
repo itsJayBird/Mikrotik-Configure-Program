@@ -1,6 +1,8 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Text.RegularExpressions;
 using System.Threading;
 using tik4net;
 using WinSCP;
@@ -17,7 +19,7 @@ namespace MikrotikConfig
             return ru.initializeRouter();
         }
         
-        public string getRouterModel(RouterInfo routerinfo)
+        public RouterInfo getRouterModel(RouterInfo routerinfo)
         {
             return ru.getModel(routerinfo);
         }
@@ -34,16 +36,23 @@ namespace MikrotikConfig
 
             // dummy command
             ITikCommand cmd;
+            string source = "PTP Programmed by Mikrotik Programming Buddy!\n\n";
 
             // add subnet
-            cmd = connection.CreateCommandAndParameters("/ip/address/add",
+            try
+            {
+                cmd = connection.CreateCommandAndParameters("/ip/address/add",
                                                         "=address", "192.168.1.1/24",
                                                         "=interface", "bridge",
                                                         "=comment", "PTP-Subnet");
-            cmd.ExecuteList();
+                cmd.ExecuteList();
+                source += "## ADDRESS SETTINGS\nADDED ADDRESS: 192.168.1.1/24 TO INTERFACE: bridge\n\n";
+            }
+            catch (Exception) { }
 
             // loop through each device and add rules
             int port = 5001;
+            source += "## PORTS FORWARDED\n\n";
             foreach (string[] device in devices)
             {
                 int portNum = getPort(device[1]);
@@ -58,8 +67,29 @@ namespace MikrotikConfig
                                                             "=dst-port", port.ToString(),
                                                             "=comment", device[1]);
                 cmd.ExecuteList();
+                source += $"DEVICE: {device[1]}\nADDRESS: {device[0]}\nPORT: {portNum.ToString()} to {port.ToString()}\n\n";
                 port++;
             }
+
+            // set the signature
+            DateTime local = DateTime.Now;
+            var d = local.Date;
+            Regex r = new Regex("\\b(?:[0-9]{1,2}\\/){2}[0-9]{4}\\b");
+            var formatted = r.Match(d.ToString()).ToString().Replace('/', '-');
+            try
+            {
+                cmd = connection.CreateCommandAndParameters("/file/print",
+                                                            "=file", $"ptp-{formatted}.txt");
+                cmd.ExecuteList();
+
+                Thread.Sleep(2000);
+
+                cmd = connection.CreateCommandAndParameters("file/set",
+                                                            "=numbers", $"ptp-{formatted}.txt",
+                                                            "=contents", source);
+                cmd.ExecuteList();
+            }
+            catch (Exception) { }
         }
 
         public void pingRouter(RouterInfo routerinfo)
@@ -170,11 +200,13 @@ namespace MikrotikConfig
 
             // dummy command
             ITikCommand cmd;
+            string source = "Programmed by Mikrotik Programming Buddy! \n";
 
             // set identity
             cmd = connection.CreateCommandAndParameters("/system/identity/set",
                                                         "=name", customerName);
             cmd.ExecuteList();
+            source += $"Identity: {customerName}\n\n";
 
             // set snmp
             cmd = connection.CreateCommandAndParameters("/snmp/community/add",
@@ -187,19 +219,22 @@ namespace MikrotikConfig
                                                         "=trap-community", "Resound1104",
                                                         "=trap-version", "1");
             cmd.ExecuteList();
+            source += $"##SNMP\nCOMMUNITY ADDED: Resound1104\nENABLED: YES\nCONTACT: Resound Networks LLC\nLOCATION: {customerName}\nTRAP COMMUNITY: Resound1104\nTRAP VERSION: 1\n\n";
 
             // set ntp
             cmd = connection.CreateCommandAndParameters("/system/ntp/client/set",
                                                         "=enabled", "yes",
                                                         "=primary-ntp", "129.6.15.28",
-                                                        "=primary-ntp", "129.6.15.29");
+                                                        "=secondary-ntp", "129.6.15.29");
             cmd.ExecuteList();
+            source += "##NTP\nENABLED: YES\nPRIMARY: 129.6.15.28\nSECONDARY: 129.6.15.29\n\n";
 
             // set dns
             cmd = connection.CreateCommandAndParameters("/ip/dns/set",
                                                         "=allow-remote-requests", "no",
                                                         "=servers", "8.8.8.8,1.1.1.1");
             cmd.ExecuteList();
+            source += "## DNS\nALLOW REMOTE REQUESTS: NO\nSERVERS: 8.8.8.8, 1.1.1.1\n\n";
 
             // set wireless settings
             cmd = connection.CreateCommandAndParameters("/interface/wireless/security-profiles/set",
@@ -218,7 +253,9 @@ namespace MikrotikConfig
                                                         "=frequency-mode", "regulatory-domain",
                                                         "=country", "united states3");
             cmd.ExecuteList();
-            if (routerinfo.model == "arm")
+            source += $"##WIRELESS SETTINGS\nAUTHENTICATION: WPA2-PSK\nPASSWORD: {wifiPassword}\nSSID0: {wifiName}-2ghz\n";
+
+            if (routerinfo.wifiBands == 2)
             {
                 cmd = connection.CreateCommandAndParameters("/interface/wireless/set",
                                                             "=numbers", "wlan2",
@@ -229,6 +266,7 @@ namespace MikrotikConfig
                                                             "=frequency-mode", "regulatory-domain",
                                                             "=country", "united states3");
                 cmd.ExecuteList();
+                source += $"SSID1: {wifiName}-5ghz";
             }
 
            // set port names
@@ -240,11 +278,22 @@ namespace MikrotikConfig
                                                         "=interface", "ether1-WAN",
                                                         "=bridge", "bridge");
             cmd.ExecuteList();
+            source += "\n##PORT SETTINGS\nPORT0: eher1-WAN\nSET PORT ether1-WAN ON TO BRIDGE: bridge\n\n";
 
             // remove firewall rules
-            cmd = connection.CreateCommandAndParameters("/ip/firewall/filter/remove",
+            if (routerinfo.model == "arm")
+            {
+                cmd = connection.CreateCommandAndParameters("/ip/firewall/filter/remove",
                                                         "=numbers", "1,2,3,4,5,6,7,8,9,10,11");
-            cmd.ExecuteList();
+                cmd.ExecuteList();
+            }
+            if (routerinfo.model == "mipsbe")
+            {
+                cmd = connection.CreateCommandAndParameters("/ip/firewall/filter/remove",
+                                                        "=numbers", "1,2,3,4,5,6,7,8,9,10");
+                cmd.ExecuteList();
+            }
+            source += "##FIREWALL SETTINGS\nREMOVED FILTER RULES\n\n";
 
             // set DHCP settings
             cmd = connection.CreateCommandAndParameters("/ip/dhcp-server/network/set",
@@ -263,12 +312,35 @@ namespace MikrotikConfig
             cmd = connection.CreateCommandAndParameters("/ip/dhcp-server/remove",
                                                         "=numbers", "0");
             cmd.ExecuteList();
+            source += "## DHCP SETTINGS\nREMOVED DHCP SERVER\nREMOVED DHCP CLIENT\nADDED DHCP RELAY TO ADDRESS: 192.168.88.1\n\n";
 
             // set address
             cmd = connection.CreateCommandAndParameters("/ip/address/add",
                                                          "=address", secondaryIP,
                                                          "=interface", "bridge");
             cmd.ExecuteList();
+            source += $"## ADDRESS SETTINGS\n SET NEW ADDRES TO: {secondaryIP} ON INTERFACE: bridge\nREMOVED PREVIOUS ADDRESS OF: 192.168.88.1\n\n";
+            source += "##PASSWORD SETTINGS\n CHANGED PASSWORD TO: R3sound810\n\n\n CONGRATULATIONS CONFIGURATION HAS BEEN SUCCESSFULLY SET\n IF YOU SEE ANY DISCREPANCIES PLEASE EMAIL JESSE@RESOUNDNEWORKS.COM WITH ANY ISSUES";
+
+            // set signature
+            DateTime local = DateTime.Now;
+            var d = local.Date;
+            Regex r = new Regex("\\b(?:[0-9]{1,2}\\/){2}[0-9]{4}\\b");
+            var formatted = r.Match(d.ToString()).ToString().Replace('/', '-');
+            try
+            {
+                cmd = connection.CreateCommandAndParameters("/file/print",
+                                                            "=file", $"log-{formatted}.txt");
+                cmd.ExecuteList();
+
+                Thread.Sleep(5000);
+
+                cmd = connection.CreateCommandAndParameters("file/set",
+                                                            "=numbers", $"log-{formatted}.txt",
+                                                            "=contents", source);
+                cmd.ExecuteList();
+            }
+            catch (Exception) { }
 
             // reconnect on new IP
             connection.Close();
@@ -294,6 +366,7 @@ namespace MikrotikConfig
             // create connection
             ITikConnection connection = ConnectionFactory.CreateConnection(TikConnectionType.Api);
             connection.Open(routerinfo.host, routerinfo.user, routerinfo.password);
+            string source = "Programmed by Mikrotik Programming Buddy! \n";
 
             // dummy command
             ITikCommand cmd;
@@ -302,6 +375,7 @@ namespace MikrotikConfig
             cmd = connection.CreateCommandAndParameters("/system/identity/set",
                                                         "=name", customerName);
             cmd.ExecuteList();
+            source += $"Identity: {customerName}\n\n";
 
             // set snmp
             cmd = connection.CreateCommandAndParameters("/snmp/community/add",
@@ -314,19 +388,22 @@ namespace MikrotikConfig
                                                         "=trap-community", "Resound1104",
                                                         "=trap-version", "1");
             cmd.ExecuteList();
+            source += $"##SNMP\nCOMMUNITY ADDED: Resound1104\nENABLED: YES\nCONTACT: Resound Networks LLC\nLOCATION: {customerName}\nTRAP COMMUNITY: Resound1104\nTRAP VERSION: 1\n\n";
 
             // set ntp
             cmd = connection.CreateCommandAndParameters("/system/ntp/client/set",
                                                         "=enabled", "yes",
                                                         "=primary-ntp", "129.6.15.28",
-                                                        "=primary-ntp", "129.6.15.29");
+                                                        "=secondary-ntp", "129.6.15.29");
             cmd.ExecuteList();
+            source += "##NTP\nENABLED: YES\nPRIMARY: 129.6.15.28\nSECONDARY: 129.6.15.29\n\n";
 
             // set dns
             cmd = connection.CreateCommandAndParameters("/ip/dns/set",
                                                         "=allow-remote-requests", "no",
                                                         "=servers", "8.8.8.8,1.1.1.1");
             cmd.ExecuteList();
+            source += "## DNS\nALLOW REMOTE REQUESTS: NO\nSERVERS: 8.8.8.8, 1.1.1.1\n\n";
 
             // set wireless settings
             cmd = connection.CreateCommandAndParameters("/interface/wireless/security-profiles/set",
@@ -336,6 +413,7 @@ namespace MikrotikConfig
                                                         "=supplicant-identity", "Mikrotik",
                                                         "=wpa2-pre-shared-key", wifiPassword);
             cmd.ExecuteList();
+            
             cmd = connection.CreateCommandAndParameters("/interface/wireless/set",
                                                         "=numbers", "wlan1",
                                                         "=disabled", "no",
@@ -345,7 +423,10 @@ namespace MikrotikConfig
                                                         "=frequency-mode", "regulatory-domain",
                                                         "=country", "united states3");
             cmd.ExecuteList();
-            if (routerinfo.model == "arm")
+
+            source += $"##WIRELESS SETTINGS\nAUTHENTICATION: WPA2-PSK\nPASSWORD: {wifiPassword}\nSSID0: {wifiName}-2ghz\n";
+
+            if (routerinfo.wifiBands == 2)
             {
                 cmd = connection.CreateCommandAndParameters("/interface/wireless/set",
                                                             "=numbers", "wlan2",
@@ -356,6 +437,7 @@ namespace MikrotikConfig
                                                             "=frequency-mode", "regulatory-domain",
                                                             "=country", "united states3");
                 cmd.ExecuteList();
+                source += $"SSID1: {wifiName}-5ghz";
             }
 
             // set port names
@@ -363,6 +445,7 @@ namespace MikrotikConfig
                                                         "=numbers", "0",
                                                         "=name", "ether1-WAN");
             cmd.ExecuteList();
+            source += "\n##PORT SETTINGS\nPORT0: eher1-WAN\n\n";
 
             // set upnp settings
             cmd = connection.CreateCommandAndParameters("/ip/upnp/set",
@@ -370,14 +453,17 @@ namespace MikrotikConfig
                                                         "=enabled", "yes",
                                                         "=show-dummy-rule", "yes");
             cmd.ExecuteList();
+
             cmd = connection.CreateCommandAndParameters("/ip/upnp/interfaces/add",
                                                         "=interface", "ether1-WAN",
                                                         "=type", "external");
             cmd.ExecuteList();
+
             cmd = connection.CreateCommandAndParameters("/ip/upnp/interfaces/add",
                                                         "=interface", "bridge",
                                                         "=type", "internal");
             cmd.ExecuteList();
+            source += "##UPNP SETTINGS\nALLOW DISABLE EXTERNAL INTERFACE: YES\nENABLED: YES\nSHOW DUMMY RULE: YES\nADD EXTERNAL INTERFACE: ether1-WAN\nADD INTERNAL INTERFACE: bridge\n\n";
 
             // remove firewall rules
             if(routerinfo.model == "arm")
@@ -397,6 +483,7 @@ namespace MikrotikConfig
                                                         "=numbers", "0",
                                                         "=out-interface", "ether1-WAN");
             cmd.ExecuteList();
+            source += "##FIREWALL SETTINGS:\nREMOVED FILTER RULES\nADDED MASQUERADE RULE TO PORT: ether1-WAN\n\n";
 
             // set DHCP settings
             cmd = connection.CreateCommandAndParameters("/ip/dhcp-client/set",
@@ -407,6 +494,30 @@ namespace MikrotikConfig
                                                         "=dns-server", "8.8.8.8,1.1.1.1",
                                                         "=numbers", "0");
             cmd.ExecuteList();
+            source += "##DHCP SETTINGS\nSET DHCP CLIENT TO PORT: ether1-WAN\nCHANGED DNS SERVERS TO: 8.8.8.8, 1.1.1.1\n\n";
+            source += "##PASSWORD SETTINGS\n CHANGED PASSWORD TO: R3sound810\n\n\n CONGRATULATIONS CONFIGURATION HAS BEEN SUCCESSFULLY SET\n IF YOU SEE ANY DISCREPANCIES PLEASE EMAIL JESSE@RESOUNDNEWORKS.COM WITH ANY ISSUES";
+
+
+            // set the signature
+            DateTime local = DateTime.Now;
+            var d = local.Date;
+            Regex r = new Regex("\\b(?:[0-9]{1,2}\\/){2}[0-9]{4}\\b");
+            var formatted = r.Match(d.ToString()).ToString().Replace('/', '-');
+            try
+            {
+                cmd = connection.CreateCommandAndParameters("/file/print",
+                                                            "=file", $"log-{formatted}.txt");
+                cmd.ExecuteList();
+
+                Thread.Sleep(5000);
+
+                cmd = connection.CreateCommandAndParameters("file/set",
+                                                            "=numbers", $"log-{formatted}.txt",
+                                                            "=contents", source);
+                cmd.ExecuteList();
+            }
+            catch (Exception) { }
+
 
             // set password
             cmd = connection.CreateCommandAndParameters("/password",

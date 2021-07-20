@@ -58,8 +58,8 @@ namespace MikrotikConfig
                 Thread.Sleep(100);
 
                 // USE THE UTILITY FUNCTION TO GET MODEL INFORMATION
-                string routerModel = controller.getRouterModel(routerinfo);
-                routerinfo.setModel(routerModel);
+                //string routerModel = controller.getRouterModel(routerinfo);
+                //routerinfo.setModel(routerModel);
                 (sender as BackgroundWorker).ReportProgress(66);
                 Thread.Sleep(100);
 

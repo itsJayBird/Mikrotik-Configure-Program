@@ -69,8 +69,8 @@ namespace MikrotikConfig
                 (sender as BackgroundWorker).ReportProgress(25);
 
                 // USE THE UTILITY FUNCTION TO GET MODEL INFORMATION
-                string routerModel = controller.getRouterModel(routerinfo);
-                routerinfo.setModel(routerModel);
+                //string routerModel = controller.getRouterModel(routerinfo);
+                //routerinfo.setModel(routerModel);
                 (sender as BackgroundWorker).ReportProgress(50);
 
                 // run script

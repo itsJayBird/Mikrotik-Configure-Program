@@ -11,6 +11,7 @@ namespace MikrotikConfig
         public string currentFW { get; set; }
         public string upgradeFW { get; set; }
         public string masterFW { get; }
+        public int wifiBands { get; set; }
         public Tuple<bool, bool> upgradeChecks { get; set; }
 
         public RouterInfo() { }
@@ -49,6 +50,11 @@ namespace MikrotikConfig
         public void setUpgradeChecks(Tuple<bool, bool> checks)
         {
             this.upgradeChecks = checks;
+        }
+
+        public void setWifiBands(int bands)
+        {
+            this.wifiBands = bands;
         }
     }
 }
