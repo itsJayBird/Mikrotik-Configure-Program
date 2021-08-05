@@ -11,6 +11,7 @@ namespace MikrotikConfig
         public string currentFW { get; set; }
         public string upgradeFW { get; set; }
         public string masterFW { get; }
+        public string routerBoard { get; set; } = "null";
         public int wifiBands { get; set; }
         public Tuple<bool, bool> upgradeChecks { get; set; }
 

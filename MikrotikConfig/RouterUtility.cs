@@ -198,9 +198,10 @@ namespace MikrotikConfig
                 routerinfo.wifiBands = 2;
                 return routerinfo;
             }
-            if (list.ToString().Contains("RB951"))
+            if (list.ToString().Contains("hAP ac lite"))
             {
                 routerinfo.model = "mipsbe";
+                routerinfo.routerBoard = "hapLite";
                 routerinfo.wifiBands = 1;
                 return routerinfo;
             }

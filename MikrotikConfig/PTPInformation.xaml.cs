@@ -193,7 +193,7 @@ namespace MikrotikConfig
             // first time run
             if (setupCount == 0)
             {
-                this.rules.Text += "\"Example Rule\"\t\t1.1.1.1\t999";
+                this.rules.Text += "\"Example Rule\"\t\t1.1.1.1\t\t999";
             }
 
             setupCount++;

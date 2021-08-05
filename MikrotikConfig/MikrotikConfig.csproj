@@ -7,7 +7,7 @@
     <PackageId>Mikrotik Programming Buddy</PackageId>
     <Authors>Mikrotik Programming Buddy</Authors>
     <Product>Mikrotik Programming Buddy</Product>
-    <Version>0.1.0</Version>
+    <Version>0.1.2</Version>
     <PackageIcon>icon.png</PackageIcon>
     <PackageIconUrl />
     <ApplicationIcon>Res\icon.ico</ApplicationIcon>

@@ -281,7 +281,7 @@ namespace MikrotikConfig
             source += "\n##PORT SETTINGS\nPORT0: eher1-WAN\nSET PORT ether1-WAN ON TO BRIDGE: bridge\n\n";
 
             // remove firewall rules
-            if (routerinfo.model == "arm")
+            if (routerinfo.model == "arm" || routerinfo.routerBoard == "hapLite")
             {
                 cmd = connection.CreateCommandAndParameters("/ip/firewall/filter/remove",
                                                         "=numbers", "1,2,3,4,5,6,7,8,9,10,11");
