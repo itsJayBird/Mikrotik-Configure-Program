@@ -286,7 +286,7 @@ namespace MikrotikConfig
                 cmd = connection.CreateCommandAndParameters("/ip/firewall/filter/remove",
                                                         "=numbers", "1,2,3,4,5,6,7,8,9,10,11");
                 cmd.ExecuteList();
-            }
+            } else
             if (routerinfo.model == "mipsbe")
             {
                 cmd = connection.CreateCommandAndParameters("/ip/firewall/filter/remove",
@@ -298,6 +298,8 @@ namespace MikrotikConfig
             // set DHCP settings
             cmd = connection.CreateCommandAndParameters("/ip/dhcp-server/network/set",
                                                         "=dns-server", "8.8.8.8,1.1.1.1",
+                                                        "=address", "192.168.1.0/24",
+                                                        "=gateway", "192.168.1.1",
                                                         "=numbers", "0");
             cmd.ExecuteList();
             cmd = connection.CreateCommandAndParameters("/ip/dhcp-client/remove",
@@ -317,7 +319,8 @@ namespace MikrotikConfig
             // set address
             cmd = connection.CreateCommandAndParameters("/ip/address/add",
                                                          "=address", secondaryIP,
-                                                         "=interface", "bridge");
+                                                         "=interface", "bridge",
+                                                         "=comment", "PTP-Subnet");
             cmd.ExecuteList();
             source += $"## ADDRESS SETTINGS\n SET NEW ADDRES TO: {secondaryIP} ON INTERFACE: bridge\nREMOVED PREVIOUS ADDRESS OF: 192.168.88.1\n\n";
             source += "##PASSWORD SETTINGS\n CHANGED PASSWORD TO: R3sound810\n\n\n CONGRATULATIONS CONFIGURATION HAS BEEN SUCCESSFULLY SET\n IF YOU SEE ANY DISCREPANCIES PLEASE EMAIL JESSE@RESOUNDNEWORKS.COM WITH ANY ISSUES";
@@ -466,12 +469,12 @@ namespace MikrotikConfig
             source += "##UPNP SETTINGS\nALLOW DISABLE EXTERNAL INTERFACE: YES\nENABLED: YES\nSHOW DUMMY RULE: YES\nADD EXTERNAL INTERFACE: ether1-WAN\nADD INTERNAL INTERFACE: bridge\n\n";
 
             // remove firewall rules
-            if(routerinfo.model == "arm")
+            if(routerinfo.model == "arm" || routerinfo.routerBoard == "hapLite")
             {
                 cmd = connection.CreateCommandAndParameters("/ip/firewall/filter/remove",
                                                         "=numbers", "1,2,3,4,5,6,7,8,9,10,11");
                 cmd.ExecuteList();
-            }
+            } else
             if (routerinfo.model == "mipsbe")
             {
                 cmd = connection.CreateCommandAndParameters("/ip/firewall/filter/remove",

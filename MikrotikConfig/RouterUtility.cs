@@ -8,7 +8,7 @@ namespace MikrotikConfig
     {
         private readonly string host = "192.168.88.1";
         private readonly string[,] defaultCredentials = { { "admin", "admin", "admin", "admin", "admin", "wroknet" },
-                                                            { "", "R3sound810", "R3sound810!", "Rn3t720", "Rn3t720!", "H4rv3st3r!" } };
+                                                          { "", "R3sound810", "R3sound810!", "Rn3t720", "Rn3t720!", "H4rv3st3r!" } };
         private readonly string masterFW = "6.48.3";
         public RouterUtility() { }
 
@@ -202,13 +202,13 @@ namespace MikrotikConfig
             {
                 routerinfo.model = "mipsbe";
                 routerinfo.routerBoard = "hapLite";
-                routerinfo.wifiBands = 1;
+                routerinfo.wifiBands = 2;
                 return routerinfo;
             }
-            if (list.ToString().Contains("RB952"))
+            if (list.ToString().Contains("RB951"))
             {
                 routerinfo.model = "mipsbe";
-                routerinfo.wifiBands = 2;
+                routerinfo.wifiBands = 1;
                 return routerinfo;
             }
             return null;

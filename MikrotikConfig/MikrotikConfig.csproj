@@ -7,10 +7,11 @@
     <PackageId>Mikrotik Programming Buddy</PackageId>
     <Authors>Mikrotik Programming Buddy</Authors>
     <Product>Mikrotik Programming Buddy</Product>
-    <Version>0.1.2</Version>
+    <Version>0.2.4</Version>
     <PackageIcon>icon.png</PackageIcon>
     <PackageIconUrl />
     <ApplicationIcon>Res\icon.ico</ApplicationIcon>
+    <AssemblyName>Mikrotik Programmy Buddy</AssemblyName>
   </PropertyGroup>
 
   <ItemGroup>
