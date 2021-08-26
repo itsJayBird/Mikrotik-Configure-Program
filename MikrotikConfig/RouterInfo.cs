@@ -22,6 +22,7 @@ namespace MikrotikConfig
             this.user = user;
             this.password = password;
             this.masterFW = "6.48.3";
+            //
         }
 
         public void setHost(string host)
